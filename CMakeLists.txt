@@ -40,6 +40,7 @@ endif()
 add_library(sapporchestra_core STATIC
   src/core/OrchestraEngine.cpp
   src/core/OrchestraRender.cpp
+  src/core/SappLinkCCMap.cpp
 )
 target_include_directories(sapporchestra_core PUBLIC src)
 target_link_libraries(sapporchestra_core PUBLIC Sapp::Sounds)
@@ -66,8 +67,11 @@ if(SAPPORCHESTRA_BUILD_TESTS)
     tests/unit/test_orchestra_engine.cpp
     tests/unit/test_room.cpp
     tests/unit/test_render.cpp
+    tests/unit/test_sapplink.cpp
   )
   target_link_libraries(SappOrchestraTests PRIVATE sapporchestra_core Catch2::Catch2WithMain)
+  target_compile_definitions(SappOrchestraTests PRIVATE
+    SAPPORCH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
   sapporchestra_set_warnings(SappOrchestraTests)
 
   enable_testing()

@@ -2,6 +2,7 @@
 
 #include <sapp/sounds/DiagnosticInstrument.h>
 
+#include "../core/SappLinkCCMap.h"
 #include "PluginEditor.h"
 
 namespace sapporch {
@@ -81,7 +82,47 @@ SappOrchestraProcessor::SappOrchestraProcessor()
     pArticulation_ = raw("articulation");
 
     eventScratch_.reserve(512);
+
+    const auto& table = sapplink::mappings();
+    static_assert(std::tuple_size<decltype(ccSlews_)>::value == size_t(sapplink::kNumMappings),
+                  "ccSlews_ must match the SappLink mapping table size");
+    for (size_t i = 0; i < table.size(); ++i)
+        ccSlews_[i].parameter = apvts_.getParameter(table[i].paramId);
+
     loadDiagnosticInstrument();
+}
+
+void SappOrchestraProcessor::handleSappLinkCc(int ccNumber, int ccValue)
+{
+    const auto* mapping = sapplink::findMapping(ccNumber);
+    if (mapping == nullptr)
+        return;
+    const auto index = size_t(mapping - sapplink::mappings().data());
+    auto& slew = ccSlews_[index];
+    if (slew.parameter == nullptr)
+        return;
+    slew.target = slew.parameter->convertTo0to1(sapplink::ccToEngineering(*mapping, ccValue));
+    if (!slew.active)
+        slew.current = slew.parameter->getValue();
+    slew.active = true;
+}
+
+void SappOrchestraProcessor::advanceCcSlews(int numSamples)
+{
+    // ~15 ms approach per step, applied through the same normalized-value
+    // path host automation uses — never straight into the DSP.
+    const float coefficient =
+        1.0f - std::exp(-float(numSamples) / (0.015f * float(getSampleRate() > 0 ? getSampleRate() : 48000.0)));
+    for (auto& slew : ccSlews_) {
+        if (!slew.active || slew.parameter == nullptr)
+            continue;
+        slew.current += (slew.target - slew.current) * coefficient;
+        if (std::abs(slew.target - slew.current) < 1.0e-4f) {
+            slew.current = slew.target;
+            slew.active = false;
+        }
+        slew.parameter->setValueNotifyingHost(slew.current);
+    }
 }
 
 SappOrchestraProcessor::~SappOrchestraProcessor() = default;
@@ -124,6 +165,7 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                           juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
+    advanceCcSlews(buffer.getNumSamples());
     pushParamsToEngine();
 
     keyboardState.processNextMidiBuffer(midi, 0, buffer.getNumSamples(), true);
@@ -174,6 +216,10 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             e.type = MidiEvent::Type::Controller;
             e.note = uint8_t(msg.getControllerNumber());
             e.value = uint8_t(msg.getControllerValue());
+            // SappLink CC-in (any channel): mapped CCs also steer parameters.
+            // The event still reaches the engine below (SFZ CC conditions,
+            // native CC1/CC11/CC64 behavior stay untouched).
+            handleSappLinkCc(msg.getControllerNumber(), msg.getControllerValue());
         } else if (msg.isPitchWheel()) {
             e.type = MidiEvent::Type::PitchBend;
             e.bend14 = int16_t(msg.getPitchWheelValue() - 8192);

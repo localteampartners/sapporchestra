@@ -4,6 +4,7 @@
 // instrument loading. All sampler/orchestra DSP lives below in
 // sapporchestra_core / SappSounds.
 
+#include <array>
 #include <atomic>
 #include <memory>
 #include <thread>
@@ -97,6 +98,19 @@ private:
     // Knob→CC bridging: moving Dynamics/Expression injects the matching CC.
     float lastDynParam_ = -1.0f, lastExprParam_ = -1.0f;
     int lastArticulationParam_ = -1;
+
+    // SappLink CC-in (see src/core/SappLinkCCMap.h): mapped controllers land
+    // as slew targets; each block moves the APVTS parameter a fraction of the
+    // way — the same normalized path host automation uses — so 7-bit CC steps
+    // don't zipper. CC 1/11/64 are engine-native and never appear here.
+    struct CcSlew {
+        juce::RangedAudioParameter* parameter = nullptr;
+        float target = 0.0f, current = 0.0f;
+        bool active = false;
+    };
+    std::array<CcSlew, 10> ccSlews_;
+    void handleSappLinkCc(int ccNumber, int ccValue);
+    void advanceCcSlews(int numSamples);
 
     std::vector<sapp::sounds::MidiEvent> eventScratch_;
 

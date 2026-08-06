@@ -2,7 +2,7 @@
 
 <!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**As of 2026-08-06 — v0.1.0, first working build.**
+**As of 2026-08-06 — v0.1.1: v0.1.0 + SappLink CC-in.**
 
 ## Working
 
@@ -19,6 +19,8 @@
   deterministic seeds)
 - Tests: 12 cases green (engine policy, room, deterministic renders)
 - Demo pipeline: scripts/make_demo.py (3 placed stems → mixed WAV)
+- SappLink CC-in: 10 CCs → parameters (manifest-driven, drift-guarded),
+  plugin slew path + CLI/offline path; CC1/CC11/CC64 stay engine-native
 
 ## Known issues / limits
 

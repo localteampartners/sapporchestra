@@ -2,6 +2,13 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-06 — v0.1.1
+- SappLink v1 MIDI CC-in: table-driven map (src/core/SappLinkCCMap) of 10
+  CCs to stable parameter IDs per sapptune's sapporchestra.json manifest
+  (authored this session from the plugin's real ranges). Plugin routes CCs
+  through APVTS with ~15 ms slew; CLI/offline renders honor the same CCs.
+  Drift-guard test vs vendored manifest; render + plugin-path proofs.
+
 ## 2026-08-06 — v0.1.0
 - First working build: OrchestraEngine (CC1 dynamics / CC11 expression /
   stage / ER + FDN hall / Analog DNA / limiter), JUCE Standalone + VST3 + AU

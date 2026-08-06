@@ -28,3 +28,12 @@ Matches sappsynth (stay on last stable 8.x until 9.x settles).
 ## 2026-08-06 — Algorithmic hall first (8-line Householder FDN)
 Convolution is optional/later; the FDN gives a controllable, coherent shared
 tail with predictable CPU.
+
+## 2026-08-06 — SappLink CC map lives here, not in SappSounds
+The CC→parameter contract is product policy (parameters are the product's),
+so src/core/SappLinkCCMap owns it and both the plugin and the offline render
+consume the same table. SappSounds stays SappLink-free: the engine only
+forwards raw CC state to SFZ region conditions. CC 1/11/64 are engine-native
+performance controls and are excluded from the mapping. The sapporchestra
+manifest was authored directly from the real APVTS ranges, so plugin and
+manifest agree with zero corrections.

@@ -1,0 +1,24 @@
+{
+  "sapplink": "1.0",
+  "name": "sapporchestra",
+  "kind": "orchestra",
+  "midi": {
+    "channelPolicy": "any",
+    "polyphony": 96,
+    "pitchBendRangeSemitones": 2
+  },
+  "parameters": [
+    { "id": "masterGain",  "label": "Master",            "cc": 7,   "range": [-24, 12],  "curve": "linear", "tags": ["volume"] },
+    { "id": "earlyLevel",  "label": "Early Reflections", "cc": 14,  "range": [0, 1],     "curve": "linear", "tags": ["space", "proximity"] },
+    { "id": "hallDecay",   "label": "Hall Decay",        "cc": 15,  "range": [0.3, 12],  "curve": "log",    "tags": ["space", "tail"] },
+    { "id": "stageX",      "label": "Stage Position",    "cc": 16,  "range": [-1, 1],    "curve": "linear", "tags": ["stage", "position"] },
+    { "id": "stageDepth",  "label": "Stage Depth",       "cc": 17,  "range": [0, 1],     "curve": "linear", "tags": ["stage", "distance", "space"] },
+    { "id": "width",       "label": "Width",             "cc": 18,  "range": [0, 2],     "curve": "linear", "tags": ["width", "space"] },
+    { "id": "hallDamping", "label": "Hall Damping",      "cc": 19,  "range": [0, 1],     "curve": "linear", "tags": ["space", "tone"] },
+    { "id": "dnaAmount",   "label": "Analog DNA",        "cc": 26,  "range": [0, 1],     "curve": "linear", "tags": ["humanize", "waver", "vintage"] },
+    { "id": "tailLevel",   "label": "Hall Level",        "cc": 91,  "range": [0, 1],     "curve": "linear", "tags": ["space", "reverb"] },
+    { "id": "hallSize",    "label": "Hall Size",         "cc": 92,  "range": [0.2, 1.5], "curve": "linear", "tags": ["space"] }
+  ],
+  "presets": [],
+  "articulations": []
+}

@@ -74,22 +74,31 @@ Returns the full parameter schema: `{"params":[{name,min,max,default,doc}],
 "enums":{"dna_mode":[...],"quality":[...]}}`. Use these names with
 `render --param`.
 
-| name | range | default | meaning |
-|---|---|---|---|
-| dynamics | 0–1 | 0.7 | CC1 equivalent: level + timbre |
-| expression | 0–1 | 1.0 | CC11 equivalent: phrase volume |
-| stage_x | −1–1 | 0 | stage position left→right |
-| stage_depth | 0–1 | 0.35 | close→far (attenuation, damping, room) |
-| width | 0–2 | 1 | stereo width before positioning |
-| early_level | 0–1 | 0.35 | early-reflection level |
-| tail_level | 0–1 | 0.30 | hall tail level |
-| hall_size | 0.2–1.5 | 1.0 | hall size |
-| hall_decay | 0.3–12 | 2.6 | T60 seconds |
-| hall_damping | 0–1 | 0.45 | HF damping |
-| dna_amount | 0–1 | 0.18 | ensemble detune/drift amount |
-| master_gain_db | −24–12 | 0 | output gain |
-| dna_mode | enum | 1 | 0 clean · 1 cohesive · 2 vintage |
-| quality | enum | 1 | 0 draft (linear) · 1 normal (cubic) |
+Each entry also carries `id` (the plugin's stable APVTS parameter ID, which
+is also the SappLink manifest ID) and, when the parameter is reachable from
+MIDI, `cc` (+`ccCurve`, or `ccNative` for engine-handled controllers).
+
+| name | id | range | default | MIDI CC | meaning |
+|---|---|---|---|---|---|
+| dynamics | dynamics | 0–1 | 0.7 | 1 (native) | level + timbre |
+| expression | expression | 0–1 | 1.0 | 11 (native) | phrase volume |
+| stage_x | stageX | −1–1 | 0 | 16 | stage position left→right |
+| stage_depth | stageDepth | 0–1 | 0.35 | 17 | close→far (attenuation, damping, room) |
+| width | width | 0–2 | 1 | 18 | stereo width before positioning |
+| early_level | earlyLevel | 0–1 | 0.35 | 14 | early-reflection level |
+| tail_level | tailLevel | 0–1 | 0.30 | 91 | hall tail level |
+| hall_size | hallSize | 0.2–1.5 | 1.0 | 92 | hall size |
+| hall_decay | hallDecay | 0.3–12 | 2.6 | 15 (log) | T60 seconds |
+| hall_damping | hallDamping | 0–1 | 0.45 | 19 | HF damping |
+| dna_amount | dnaAmount | 0–1 | 0.18 | 26 | ensemble detune/drift amount |
+| master_gain_db | masterGain | −24–12 | 0 | 7 | output gain |
+| dna_mode | dnaMode | enum | 1 | — | 0 clean · 1 cohesive · 2 vintage |
+| quality | quality | enum | 1 | — | 0 draft (linear) · 1 normal (cubic) |
+
+**SappLink CC-in:** the MIDI CC column is a live contract — CCs embedded in
+a rendered `.mid` (or played into the plugin) move these parameters, with
+slew smoothing, on any channel. See [sapplink.md](sapplink.md) and the
+manifest at `~/apps/sapptune/sapplink/manifests/sapporchestra.json`.
 
 ## render
 

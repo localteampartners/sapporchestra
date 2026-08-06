@@ -28,6 +28,7 @@
 #include <sapp/sounds/WavIo.h>
 
 #include "../core/OrchestraRender.h"
+#include "../core/SappLinkCCMap.h"
 #include "Json.h"
 
 using namespace sapp::sounds;
@@ -45,37 +46,41 @@ const char* noteName(int note)
 }
 
 struct ParamSpec {
-    const char* name;
+    const char* name;      // CLI --param name (snake_case)
+    const char* apvtsId;   // stable plugin parameter ID (= SappLink manifest id)
     float OrchestraParams::* field;
     float lo, hi, def;
+    int nativeCc;          // engine-native CC (1/11), or -1
     const char* doc;
 };
 
 // Single source of truth for the float parameters an agent may set.
+// MIDI CC reachability comes from the SappLink table (core/SappLinkCCMap.cpp)
+// except dynamics/expression, which are engine-native on CC 1 / CC 11.
 const ParamSpec kParams[] = {
-    {"dynamics", &OrchestraParams::dynamics, 0.0f, 1.0f, 0.7f,
+    {"dynamics", "dynamics", &OrchestraParams::dynamics, 0.0f, 1.0f, 0.7f, 1,
      "Orchestral dynamics (follows MIDI CC1). Level and timbre together: pp is quiet and dark, ff is full and bright."},
-    {"expression", &OrchestraParams::expression, 0.0f, 1.0f, 1.0f,
+    {"expression", "expression", &OrchestraParams::expression, 0.0f, 1.0f, 1.0f, 11,
      "Phrase volume (follows MIDI CC11). Level only; timbre unchanged."},
-    {"stage_x", &OrchestraParams::stageX, -1.0f, 1.0f, 0.0f,
+    {"stage_x", "stageX", &OrchestraParams::stageX, -1.0f, 1.0f, 0.0f, -1,
      "Stage position, -1 hard left to +1 hard right."},
-    {"stage_depth", &OrchestraParams::stageDepth, 0.0f, 1.0f, 0.35f,
+    {"stage_depth", "stageDepth", &OrchestraParams::stageDepth, 0.0f, 1.0f, 0.35f, -1,
      "Distance from listener: 0 close/dry, 1 back of the hall."},
-    {"width", &OrchestraParams::width, 0.0f, 2.0f, 1.0f,
+    {"width", "width", &OrchestraParams::width, 0.0f, 2.0f, 1.0f, -1,
      "Stereo width before positioning: 0 mono, 1 natural, 2 wide."},
-    {"early_level", &OrchestraParams::earlyLevel, 0.0f, 1.0f, 0.35f,
+    {"early_level", "earlyLevel", &OrchestraParams::earlyLevel, 0.0f, 1.0f, 0.35f, -1,
      "Early-reflection level (position/proximity cue)."},
-    {"tail_level", &OrchestraParams::tailLevel, 0.0f, 1.0f, 0.30f,
+    {"tail_level", "tailLevel", &OrchestraParams::tailLevel, 0.0f, 1.0f, 0.30f, -1,
      "Shared hall tail level."},
-    {"hall_size", &OrchestraParams::hallSize, 0.2f, 1.5f, 1.0f,
+    {"hall_size", "hallSize", &OrchestraParams::hallSize, 0.2f, 1.5f, 1.0f, -1,
      "Hall size scaling."},
-    {"hall_decay", &OrchestraParams::hallDecay, 0.3f, 12.0f, 2.6f,
+    {"hall_decay", "hallDecay", &OrchestraParams::hallDecay, 0.3f, 12.0f, 2.6f, -1,
      "Hall decay time in seconds (T60)."},
-    {"hall_damping", &OrchestraParams::hallDamping, 0.0f, 1.0f, 0.45f,
+    {"hall_damping", "hallDamping", &OrchestraParams::hallDamping, 0.0f, 1.0f, 0.45f, -1,
      "High-frequency damping of the hall tail."},
-    {"dna_amount", &OrchestraParams::dnaAmount, 0.0f, 1.0f, 0.18f,
+    {"dna_amount", "dnaAmount", &OrchestraParams::dnaAmount, 0.0f, 1.0f, 0.18f, -1,
      "Analog DNA amount: humanized per-note tuning, gentle drift."},
-    {"master_gain_db", &OrchestraParams::masterGainDb, -24.0f, 12.0f, 0.0f,
+    {"master_gain_db", "masterGain", &OrchestraParams::masterGainDb, -24.0f, 12.0f, 0.0f, -1,
      "Master output gain in dB."},
 };
 
@@ -265,9 +270,23 @@ int cmdParams()
     for (const auto& p : kParams) {
         w.beginObject();
         w.field("name", p.name);
+        w.field("id", p.apvtsId);
         w.field("min", double(p.lo));
         w.field("max", double(p.hi));
         w.field("default", double(p.def));
+        // MIDI reachability (SappLink): mapped CC, or the engine-native CC.
+        if (p.nativeCc >= 0) {
+            w.field("cc", p.nativeCc);
+            w.field("ccNative", true);
+        } else {
+            for (const auto& m : sapplink::mappings()) {
+                if (std::string(m.paramId) == p.apvtsId) {
+                    w.field("cc", m.cc);
+                    w.field("ccCurve", m.curve == sapplink::Curve::Log ? "log" : "linear");
+                    break;
+                }
+            }
+        }
         w.field("doc", p.doc);
         w.endObject();
     }
