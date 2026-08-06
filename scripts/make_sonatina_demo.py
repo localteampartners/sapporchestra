@@ -76,11 +76,12 @@ MELODY = [                        # (start-beat, dur, note, vel) violin line
 
 stems = []
 
-# 1st violins: melody on sustain, keyswitched from the KS patch.
+# 1st violins: melody on sustain — slight overlaps make the lines slur
+# (legato level 2 suppresses attacks and fades the previous note).
 v1 = []
 cc(v1, 0, 1, 70)
 for start, dur, key, vel in MELODY:
-    note(v1, start, dur * 0.98, key, vel)
+    note(v1, start, dur * 1.06, key, vel)
 ramp(v1, 1, 8, 12, 60, 95)
 ramp(v1, 1, 16, 20, 70, 100)
 ramp(v1, 1, 24, 28, 100, 118)
