@@ -1,0 +1,58 @@
+# .sappbackup.yml — config for the `sappbackup` CLI executor.
+#
+# Lives alongside _backup/ (the verification playbooks). The playbooks
+# describe WHAT should be backed up and how to verify it; this file
+# describes HOW to actually push artifacts to Backblaze B2.
+#
+# Two ways to use it:
+#   - Manually: `sappbackup push .`  (or `sappbackup push --dry-run .` to test)
+#   - On a schedule: `/loop daily sappbackup push <this-project>` via Claude Code
+#
+# Schema version: 1.
+
+schema: 1
+
+# REQUIRED. Stable lowercase-kebab id, matches .monitor.yml `id`.
+project_id: sapporchestra
+
+# Each artifact has a type, a source, and a destination tier (hot/cold/media).
+# Only the ones uncommented below get pushed. Adapt to your project.
+artifacts:
+  - name: code
+    type: git_tarball       # `git archive HEAD` → tar.zst
+    source: .
+    tier: hot
+
+  - name: docs
+    type: project_docs       # _project/*.md, one tarball
+    source: _project
+    tier: hot
+
+  # Database example — uncomment + adapt if the project has one.
+  # - name: pg_dump
+  #   type: db_pg_dump
+  #   source: ${DATABASE_URL}    # env interpolation supported
+  #   tier: hot
+
+  # - name: pocketbase
+  #   type: db_sqlite
+  #   source: /var/lib/pocketbase/pb_data/data.db
+  #   tier: hot
+
+  # Cold-tier yearly snapshot — opt in.
+  # - name: yearly-archive
+  #   type: path_tarball
+  #   source: .
+  #   tier: cold
+
+# ── Schedule (informational) ──────────────────────────────────────────────
+# sappbackup itself doesn't schedule. Wire into /loop or systemd:
+#   /loop daily sappbackup push <this-project>
+# Default cadence: hot=daily, cold=on-demand, media=on-demand.
+schedule: daily
+
+# ── Retention overrides (hot tier only) ───────────────────────────────────
+# retention:
+#   daily: 30
+#   weekly: 12
+#   monthly: 12

@@ -4,41 +4,32 @@
 
 ## What this is
 
-<!-- FILL IN: one paragraph. What does this project do? Who uses it? What's the core value? -->
+A professional orchestral sample instrument (JUCE Standalone/VST3/AU) built
+on the SappSounds engine. Loads user-selected local SFZ libraries (VPO, VSCO
+CE, Sonatina, custom) and turns them into a coherent performance instrument:
+first-class articulations, CC1 dynamics distinct from CC11 expression, stage
+placement, early reflections + shared hall, subtle Analog DNA, and a JSON
+agent CLI so MIDI-generation software can inspect instruments and render
+deterministic audio.
 
 ## Why it exists
 
-<!-- FILL IN: what problem are you solving, and why now? What happens if this doesn't exist? -->
+Free orchestral libraries sound like WAV players without an engine around
+them. The differentiator is not gigabytes: correct sample behavior,
+expressive control, clear articulations, coherent space, inspectable
+internals. Also: Michael's MIDI-generation software needs a programmable
+orchestral renderer — the agent CLI is a core deliverable, not an add-on.
 
-## Users
+## Goals
 
-<!-- FILL IN: who uses this? Just you? A team? Public? -->
+- Musical out of the box (built-in Diagnostic Orchestra, strong defaults)
+- Reliable articulation switching (UI, parameter, keyswitch — one state)
+- Deterministic renders for agent workflows (seeded)
+- Stable parameter/state contracts (IDs versioned from day 1)
 
-## Goals (in scope)
+## Non-goals (v1)
 
-- <!-- FILL IN: concrete things this project should do -->
-- 
-- 
-
-## Non-goals (explicitly out of scope)
-
-Stating what you're *not* building saves more time than stating what you are.
-
-- <!-- FILL IN: things people might expect but that you're deliberately not doing -->
-- 
-
-## Success criteria
-
-How do you know it's working? Measurable if possible.
-
-- <!-- FILL IN: e.g., "handles 10 req/s", "I use it daily for X", "paying customer uses it weekly" -->
-- 
-
-## Constraints
-
-Hard limits that shape every decision.
-
-- Budget: <!-- FILL IN: e.g., "$0", "<$20/mo" -->
-- Time: <!-- FILL IN: e.g., "weekend project", "must ship by X" -->
-- Platform: <!-- FILL IN: e.g., "must run on my existing VPS", "browser-only" -->
-- Other: <!-- FILL IN -->
+- DAW/notation/score features; Kontakt compatibility; sample store
+- Full multitimbral rack & section buses (after single-instrument is solid)
+- Automatic AI orchestration inside the plugin (external agents do this via
+  the CLI)

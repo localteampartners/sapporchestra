@@ -1,25 +1,11 @@
 # CHANGELOG — sapporchestra
 
-<!-- UPDATE WHEN: you ship a meaningful change — feature, fix, migration, dependency bump that users/operators would care about. Trivial refactors don't belong here. -->
+<!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
-Newest first. Format: `## YYYY-MM-DD — short title`, then bullets.
-
----
-
-## Unreleased
-
-<!-- Working list of changes not yet deployed. Move to a dated section on deploy. -->
-
-- 
-
----
-
-<!-- Example — delete once you have real entries.
-
-## 2026-01-15 — v0.1 deployed
-
-- Initial deploy to Hetzner VPS.
-- Added /healthz endpoint.
-- Set up nightly Postgres backups to S3.
-
--->
+## 2026-08-06 — v0.1.0
+- First working build: OrchestraEngine (CC1 dynamics / CC11 expression /
+  stage / ER + FDN hall / Analog DNA / limiter), JUCE Standalone + VST3 + AU
+  with concert-hall UI (articulation chips, stage pad, keyswitch keyboard,
+  meters), async SFZ loading with Diagnostic Orchestra fallback, host state
+  v1, agent CLI (inspect/validate/params/render), demo stem pipeline,
+  12-case test suite.

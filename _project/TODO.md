@@ -1,36 +1,21 @@
 # TODO — sapporchestra
 
-<!-- UPDATE WHEN: a task is added, completed, or re-prioritized -->
+<!-- UPDATE WHEN: tasks are added, completed, or reprioritized -->
 
-Short running task list. For "what exists *right now*," see [CURRENT_STATE.md](CURRENT_STATE.md).
-For "what's broken," also see CURRENT_STATE.md's known-issues section.
+## Next
 
----
+- [ ] Play a real Virtual Playing Orchestra instrument end-to-end; fix gaps
+- [ ] DAW validation pass: Reaper + Logic (AU) + pluginval/auval
+- [ ] Library browser: folder scan via a SappSounds indexer, favorites, search
+- [ ] X-Ray panel in the editor (DiagnosticSnapshot feed already exists)
+- [ ] Missing-library relocate dialog (Locate / Search / Disable)
+- [ ] Factory presets (seating templates: Classical / Film / Chamber)
 
-## Next up (doing soon, in order)
+## Later
 
-1. <!-- FILL IN -->
-2. 
-3. 
-
-## Backlog (not prioritized)
-
-- <!-- FILL IN -->
-- 
-- 
-
-## Ideas / maybe
-
-Half-formed — might never happen. Keep separate so they don't clutter the backlog.
-
-- <!-- FILL IN -->
-- 
-
----
-
-## Done (recent, rolling)
-
-Keep the last ~10. Older items belong in [CHANGELOG.md](CHANGELOG.md).
-
-- <!-- YYYY-MM-DD — what was done -->
-- 
+- [ ] Section buses + multi-instrument rack
+- [ ] Convolution hall option; seating templates per section
+- [ ] Legato levels 2–3 (attack suppression, recorded transitions)
+- [ ] MPE per-note expression
+- [ ] CLAP wrapper evaluation
+- [ ] CI (build matrix + tests + pluginval)

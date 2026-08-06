@@ -1,0 +1,113 @@
+#pragma once
+// SappOrchestra plugin processor: JUCE wrapper around OrchestraEngine.
+// Owns parameters (APVTS), host state, MIDI conversion, and async
+// instrument loading. All sampler/orchestra DSP lives below in
+// sapporchestra_core / SappSounds.
+
+#include <atomic>
+#include <memory>
+#include <thread>
+
+#include <juce_audio_utils/juce_audio_utils.h>
+
+#include <sapp/sounds/InstrumentLoader.h>
+
+#include "../core/OrchestraEngine.h"
+
+namespace sapporch {
+
+class SappOrchestraProcessor : public juce::AudioProcessor
+{
+public:
+    SappOrchestraProcessor();
+    ~SappOrchestraProcessor() override;
+
+    // --- AudioProcessor -----------------------------------------------------
+    void prepareToPlay(double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override;
+    bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
+    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
+
+    const juce::String getName() const override { return "SappOrchestra"; }
+    bool acceptsMidi() const override { return true; }
+    bool producesMidi() const override { return false; }
+    bool isMidiEffect() const override { return false; }
+    double getTailLengthSeconds() const override { return 12.0; }
+
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return "Default"; }
+    void changeProgramName(int, const juce::String&) override {}
+
+    void getStateInformation(juce::MemoryBlock& destData) override;
+    void setStateInformation(const void* data, int sizeInBytes) override;
+
+    // --- SappOrchestra ------------------------------------------------------
+    juce::AudioProcessorValueTreeState& valueTree() { return apvts_; }
+    sapp::orchestra::OrchestraEngine& engine() { return engine_; }
+
+    // Async instrument management (message thread).
+    void loadSfzInstrument(const juce::File& sfzFile);
+    void loadDiagnosticInstrument();
+    juce::String currentInstrumentName() const;
+    juce::String currentInstrumentPath() const { return sfzPath_; }
+    juce::String loadStatus() const;
+    bool isLoading() const { return loading_.load(); }
+
+    // Articulations of the loaded instrument (message/UI thread).
+    juce::StringArray articulationNames() const;
+    int currentArticulation() const;
+    void selectArticulation(int index);
+
+    juce::MidiKeyboardState keyboardState;
+
+    std::function<void()> onInstrumentChanged;  // editor hook (message thread)
+
+private:
+    static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
+    void pushParamsToEngine();
+    void finishLoad(sapp::sounds::LoadResult result, const juce::String& path,
+                    uint64_t generation);
+
+    juce::AudioProcessorValueTreeState apvts_;
+    sapp::orchestra::OrchestraEngine engine_;
+
+    // Cached raw parameter pointers (audio thread reads).
+    std::atomic<float>* pDynamics_ = nullptr;
+    std::atomic<float>* pExpression_ = nullptr;
+    std::atomic<float>* pStageX_ = nullptr;
+    std::atomic<float>* pStageDepth_ = nullptr;
+    std::atomic<float>* pWidth_ = nullptr;
+    std::atomic<float>* pEarly_ = nullptr;
+    std::atomic<float>* pTail_ = nullptr;
+    std::atomic<float>* pHallSize_ = nullptr;
+    std::atomic<float>* pHallDecay_ = nullptr;
+    std::atomic<float>* pHallDamping_ = nullptr;
+    std::atomic<float>* pDnaMode_ = nullptr;
+    std::atomic<float>* pDnaAmount_ = nullptr;
+    std::atomic<float>* pMaster_ = nullptr;
+    std::atomic<float>* pLimiter_ = nullptr;
+    std::atomic<float>* pQuality_ = nullptr;
+    std::atomic<float>* pArticulation_ = nullptr;
+
+    // Knob→CC bridging: moving Dynamics/Expression injects the matching CC.
+    float lastDynParam_ = -1.0f, lastExprParam_ = -1.0f;
+    int lastArticulationParam_ = -1;
+
+    std::vector<sapp::sounds::MidiEvent> eventScratch_;
+
+    juce::String sfzPath_;                 // "" = diagnostic instrument
+    juce::String instrumentName_{"(loading)"};
+    juce::String loadStatus_{"starting"};
+    std::atomic<bool> loading_{false};
+    std::atomic<uint64_t> loadGeneration_{0};
+    juce::CriticalSection loadLock_;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SappOrchestraProcessor)
+};
+
+} // namespace sapporch

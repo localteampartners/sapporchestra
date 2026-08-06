@@ -14,7 +14,6 @@ Read this file on session start. Read other files **only when the task requires 
 | Bug fix / "why is X broken" | `_project/CURRENT_STATE.md`, then relevant code |
 | Deploy, run, operate the service | `_project/RUNBOOK.md`, `_project/INFRASTRUCTURE.md` |
 | Add env var or external service | `_project/ENVIRONMENT.md`, `_project/DEPENDENCIES.md`, `.env.template` |
-| Add / rotate a secret or API key | run `/vault`; the slash command walks the sappvault flow |
 | Pick a library or pattern | `_project/DECISIONS.md` |
 | Plan next work (tactical) | `_project/TODO.md`, `_project/CURRENT_STATE.md` |
 | Think about direction (themed, multi-month) | `_project/ROADMAP.md` |
@@ -34,15 +33,12 @@ Don't pre-read everything. Pull context as needed.
 | Ship a feature | `_project/CURRENT_STATE.md`, `_project/CHANGELOG.md`, `_project/TODO.md`; reset `_project/HANDOFF.md` to "none" |
 | Make a non-obvious design choice | `_project/DECISIONS.md` |
 | Add / rename / remove an env var | `_project/ENVIRONMENT.md`, `.env.example`, `.env.template` |
-| Add / rotate / remove a secret or API key | run `/vault` (Claude orchestrates `sappvault`; you never type values) |
 | Add an external service / API / account | `_project/DEPENDENCIES.md` |
 | Change how to run / deploy / rollback | `_project/RUNBOOK.md` |
 | Change stack / components / data flow | `_project/ARCHITECTURE.md` |
-| Provision / change VPS or host | `_project/INFRASTRUCTURE.md`, `.monitor.yml` |
 | Change scope / goals | `_project/SPEC.md` |
 | Shift project direction, sequence, or theme | `_project/ROADMAP.md` |
 | Discover something broken or half-done | `_project/CURRENT_STATE.md` (known issues) |
-| Change health-check URL, add a healthcheck, change deploy target, or ship a new subdomain | `.monitor.yml` (or run `/monitor`) |
 | Add or remove the chatbot integration | `.sappchatbot/config.json`, `.claude/settings.json` (hooks), `.claude/commands/inbox.md` |
 | Harden, audit, or re-audit the VPS | run `/harden-vps`; review the `_test/findings/`-style audit output; record the date in `_project/CHANGELOG.md` |
 | Run a sapptest audit | `_test/findings/`, `_test/reports/`, `_test/verdict/`, plus tagged lines in `_project/TODO.md` + `_project/CURRENT_STATE.md` (via sync) |
@@ -75,41 +71,17 @@ Durable working state lives in files, not in this chat. Assume the session can d
 - `/sync` — adaptive drift check (samples git first, only re-reads affected docs). Delegates to `_test/prompts/docs-drift.md` if sapptest provides one.
 - `/resume` — pick up where the last session left off: reads `_project/HANDOFF.md` first, briefs in ≤10 lines, continues the plan (falls back to a CURRENT_STATE + TODO cold-open brief when nothing is in flight).
 - `/handoff` — checkpoint the current session into `_project/HANDOFF.md` so any future session can resume without this conversation. Run before ending mid-task or before anything risky.
-- `/monitor` — generate or refresh `.monitor.yml` for the sapplab monitor dashboard (https://monitor.sapplab.net). Run on day 1 and any time health-check targets, stack, or deploy target changes.
 - `/update-sappcode` — pull the latest sappcode template and merge new files / updated tooling into this project. Safe: never overwrites user-content files; prompts before touching tooling files you may have customized.
 - `/audit` — sapptest full audit. Writes findings, verdict, and TODO sync. Never edits app code.
 - `/verdict` — print the latest sapptest verdict from `_test/verdict/latest.md`.
 - `/refactor` — open one PR per refactor-marked sapptest finding. Default mode is per-finding; batched is opt-in via `_test/config/ship-rules.yml`.
 - `/harden-vps` — drive the sappsecurevps playbook (audit + harden) against this project's VPS. Reads `.vps-proxy.json` for the profile; toolkit lives at `$SAPPSECUREVPS_DIR` (default `~/tools/sappsecurevps`). Audit is read-only; hardening prompts at each destructive gate and auto-rolls back on SSH failure.
-- `/vault` — drive the sappvault flow for this project's secrets and API keys. Status / add / import / inject / rotate sub-flows. Claude never sees plaintext values — it tells the user the exact command to run themselves. Toolkit lives at `$SAPPVAULT_DIR` (default `~/tools/sappvault`). Secrets live in macOS Keychain under service `sappvault:<project>`. The GUI is macOS Keychain Access.app (`sappvault gui`).
 - `/scan` — sappsecurity static scan (secrets, dangerous patterns, vulnerable deps, insecure config). Offline, seconds. `sappsecurity verdict .` is the ship gate; suppressions live in `sappsecurity.config.json` and are user decisions.
 
 `./verify.sh` is the fast-feedback script — typecheck + lint + tests in under a minute. Run it after any non-trivial change.
 
 ---
 
-
-## Secrets / API keys (sappvault)
-
-Run anything that touches a secret value through `sappvault`. Never put plaintext keys into `.env` files by hand, and never ask the user to paste a value into the chat.
-
-- Secrets live in macOS Keychain (service `sappvault:<project>`), not on disk.
-- `.env.template` is committed and contains `${vault:NAME}` placeholders.
-- `.env` is gitignored and generated by `sappvault inject .env.template .env`.
-- The full flow (status / add / import / inject / rotate) is in the `/vault` slash command — prefer that over ad-hoc bash.
-
-**Hard rules** (these match what `sappvault` enforces at the CLI level):
-
-1. Every value-taking command (`set`, `add`, `import`, `setup`, `rotate`) refuses to run under Claude. Tell the user the exact command and have them run it in their terminal.
-2. Never run `sappvault get NAME --reveal` unless the user just asked to see the value.
-3. Never hand-write `.env`. Use `sappvault inject`.
-4. The GUI is macOS Keychain Access.app — open it with `sappvault gui`.
-
-If `sappvault` is not installed, point the user at `~/tools/sappvault/install.sh`.
-
-If this project does **not** use sappvault, delete `.sappvault` and `.env.template`, and remove this section.
-
----
 
 ## Git commits
 

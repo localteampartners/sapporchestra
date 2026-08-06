@@ -1,23 +1,79 @@
-# sapporchestra
+# SappOrchestra
 
 <!-- UPDATE WHEN: the one-line description changes, or the repo's top-level layout changes -->
 
-Professional orchestral sample instrument (JUCE Standalone/VST3/AU) built on the SappSounds engine: articulation management, CC1 dynamics / CC11 expression, stage placement, early reflections + shared hall, Analog DNA character, and an agent-facing CLI/JSON API for MIDI-generation software.
+A professional orchestral sample instrument — JUCE **Standalone / VST3 / AU** —
+built on the [SappSounds](https://github.com/localteampartners/sappsounds)
+engine. SappOrchestra turns modest local SFZ libraries (Virtual Playing
+Orchestra, VSCO CE, Sonatina, your own instruments) into a coherent,
+expressive performance instrument:
 
-**Live status:** [monitor.sapplab.net/projects/sapporchestra](https://monitor.sapplab.net/projects/sapporchestra)
+- **Articulations first-class** — keyswitch chips in the UI, an automatable
+  articulation parameter, live keyswitch coloring on the keyboard
+- **CC1 dynamics ≠ CC11 expression** — dynamics shape level *and* timbre
+  (pp is quiet and dark, ff full and bright); expression shapes phrase volume
+- **Stage placement** — an XY stage pad (position × depth) driving pan,
+  distance damping, predelay, and room sends
+- **Coherent space** — early reflections for proximity + a shared 8-line FDN
+  hall for one believable room
+- **Analog DNA** — subtle per-note ensemble detune, gentle drift, optional
+  vintage character; deterministic per seed
+- **Built-in sound** — a generated "Diagnostic Orchestra" (sustain, staccato,
+  pizzicato) plays instantly with zero sample libraries installed
+- **An agent API** — the `sapporchestra` CLI speaks JSON for MIDI-generation
+  software (see below)
 
-## Quickstart
-
-See [_project/RUNBOOK.md](_project/RUNBOOK.md) for the authoritative commands.
-
-```bash
-# <!-- FILL IN: install + run -->
+```text
+SappOrchestra  (this repo: orchestra policy, JUCE plugin/standalone, UI, CLI)
+      │  links Sapp::Sounds
+      ▼
+SappSounds     (sibling repo: SFZ, samples, voices, mapping — framework-free)
 ```
 
-## Project documentation
+## Build
 
-All orientation docs live in [`_project/`](_project/). Start with
-[_project/README.md](_project/README.md) — it's a 1-page index into everything
-else (spec, architecture, current state, runbook, infra, decisions, etc.).
+Check out both repos as siblings, then:
 
-If you're an agent opening this repo, read [CLAUDE.md](CLAUDE.md) first.
+```bash
+git clone https://github.com/localteampartners/sappsounds.git
+git clone https://github.com/localteampartners/sapporchestra.git
+cd sapporchestra
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j8          # Standalone, VST3, AU, CLI, tests
+./build/SappOrchestraTests
+```
+
+The plugin copies itself into `~/Library/Audio/Plug-Ins` on macOS after a
+build. `./verify.sh` runs the fast loop. (JUCE 8.0.15 and Catch2 are fetched
+automatically; pass `-DSAPPORCHESTRA_BUILD_PLUGIN=OFF` for a core-only build.)
+
+## The agent CLI
+
+Built for MIDI-generating software: every command prints one JSON document.
+
+```bash
+# What can this instrument do? (ranges, articulations, keyswitch protocol)
+./build/sapporchestra inspect --sfz Violin.sfz
+
+# Is this SFZ usable? (errors, warnings, missing samples, unsupported opcodes)
+./build/sapporchestra validate --sfz Violin.sfz
+
+# What parameters exist? (names, ranges, defaults, docs)
+./build/sapporchestra params
+
+# Deterministic render through the full orchestra chain:
+./build/sapporchestra render --sfz Violin.sfz --midi phrase.mid --out take.wav \
+    --param dynamics=0.8 --param stage_x=-0.3 --param hall_decay=3.2 --seed 42
+```
+
+Full contract: [docs/agent_api.md](docs/agent_api.md). A three-stem demo
+composition script lives at [scripts/make_demo.py](scripts/make_demo.py).
+
+## Docs
+
+- [architecture.md](architecture.md) — design, and how it layers on SappSounds
+- [docs/agent_api.md](docs/agent_api.md) — the machine interface
+- [docs/boundary_report.md](docs/boundary_report.md) — SappSounds/SappOrchestra
+  responsibility split + dependency report
+- [`_project/`](_project/) — working state, decisions, roadmap
+  (agents: read [CLAUDE.md](CLAUDE.md) first)

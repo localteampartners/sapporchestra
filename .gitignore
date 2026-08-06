@@ -37,3 +37,5 @@ pids/
 .sappcode/             # plugin scratch state (plan files, disabled list)
 .sappchatbot/          # chatbot credentials (gitignored regardless of plugin state)
 .sappbackup/snapshots/ # local backup metadata, if any
+build/
+.DS_Store

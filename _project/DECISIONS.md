@@ -1,39 +1,30 @@
 # DECISIONS — sapporchestra
 
-<!-- UPDATE WHEN: you make a non-obvious choice (library pick, architectural pattern, tradeoff). One entry per decision, newest at top. -->
+<!-- UPDATE WHEN: a non-obvious technical choice is made -->
 
-The *why* behind choices that aren't self-evident from the code. The #1 question
-future-you will ask is "why did I do it this way?" — answer it here, once, when
-it's fresh.
+## 2026-08-06 — Product/engine split before code
+Generic sampler code lives in the sibling SappSounds repo (`Sapp::Sounds`);
+this repo only holds orchestra policy, JUCE wrappers, UI, CLI. No SappAudio
+umbrella. See docs/boundary_report.md.
 
-Skip obvious decisions ("I used Express because it's a Node web framework").
-Write decisions where someone smart would reasonably pick differently.
+## 2026-08-06 — Knob→CC bridging for dynamics/expression
+CC1/CC11 are persistent live overrides in the engine; moving the UI knobs
+injects the matching CC instead of fighting it. One state, three inputs
+(host CC, host automation, UI).
 
----
+## 2026-08-06 — Articulation switching = keyswitch injection
+UI/parameter articulation changes inject the articulation's keyswitch note
+into the event stream. The engine keyswitch state stays the single source of
+truth; MIDI-file keyswitches, automation, and clicks can't diverge.
 
-## Format
+## 2026-08-06 — Agent API as a CLI, not a socket
+`sapporchestra` subcommands with JSON stdout: deterministic, testable,
+CI-friendly, trivially callable from any language. A live OSC/socket API can
+come later without breaking this contract.
 
-```
-## YYYY-MM-DD — short title
+## 2026-08-06 — JUCE 8.0.15 pinned
+Matches sappsynth (stay on last stable 8.x until 9.x settles).
 
-**Decision:** what you chose.
-**Context:** the situation that forced the choice.
-**Alternatives considered:** what else was on the table, and why they lost.
-**Tradeoffs:** what this choice costs you.
-**Revisit if:** the condition that would make you reconsider.
-```
-
----
-
-## Entries
-
-<!-- Newest first. Example below — delete once you have real entries. -->
-
-## YYYY-MM-DD — Example: chose SQLite over Postgres
-
-**Decision:** use SQLite with WAL mode for v1.
-**Context:** single-user app, will run on one VPS, expected <1k writes/day.
-**Alternatives considered:** Postgres (heavier ops for no current benefit),
-DuckDB (analytical, not OLTP), plain JSON files (no concurrency safety).
-**Tradeoffs:** can't scale out horizontally; migrations are manual-ish.
-**Revisit if:** multi-user, multi-writer, or dataset >10GB.
+## 2026-08-06 — Algorithmic hall first (8-line Householder FDN)
+Convolution is optional/later; the FDN gives a controllable, coherent shared
+tail with predictable CPU.

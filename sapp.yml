@@ -1,0 +1,86 @@
+# sapp.yml — single manifest for the sapp* suite. schema: sapp/1
+# Sections mirror the legacy per-tool dotfiles (see sapptools/_project/upgrade/SPEC-manifest.md).
+# A tool reads its section here FIRST; legacy dotfiles are fallback only.
+schema: sapp/1
+monitor:
+  schema: 1
+  id: sapporchestra
+  name: sapporchestra
+  description: >
+    Professional orchestral sample instrument (JUCE Standalone/VST3/AU) built on
+    the SappSounds engine: articulation management, CC1 dynamics / CC11
+    expression, stage placement, early reflections + shared hall, Analog DNA
+    character, and an agent-facing CLI/JSON API for MIDI-generation software.
+  status: paused
+  tags:
+    - web
+    - internal
+  owner: localteampartners@gmail.com
+  urls:
+    primary: https://example.com
+    admin: https://example.com/admin
+    docs: https://example.com/docs
+    repo: https://github.com/you/repo
+  host:
+    vps: none
+    path: /var/www/example
+    process_manager: pm2
+    pm2_name: example-api
+    nginx_site: example.com
+  stack:
+    runtime: node 22
+    framework: next.js 15
+    database: postgres 16
+    key_libraries: []
+    external_services:
+      - stripe
+      - openai
+  purpose: |
+    What problem this project solves and for whom.
+  features:
+    - User-facing feature A
+    - Admin feature B
+    - Scheduled job C
+  checks:
+    - name: homepage
+      type: http
+      url: https://example.com
+      method: GET
+      expect_status: 200
+      expect_body_contains: ""
+      timeout_ms: 5000
+      interval_seconds: 60
+      headers: {}
+  notes: |
+    Anything worth remembering: gotchas, deploy quirks, who to call, known
+    flaky behavior, etc. Free-form markdown.
+backup:
+  schema: 1
+  project_id: sapporchestra
+  artifacts:
+    - name: code
+      type: git_tarball
+      source: .
+      tier: hot
+    - name: docs
+      type: project_docs
+      source: _project
+      tier: hot
+  schedule: daily
+security:
+  thresholds:
+    critical: 0
+    high: 0
+    medium: -1
+    low: -1
+    info: -1
+  ignore: []
+  disabledRules: []
+  severityOverrides: {}
+  scanners: []
+  deepReview:
+    enabled: false
+    model: claude-sonnet-4-6
+    maxFiles: 20
+project:
+  name: sapporchestra

@@ -1,38 +1,29 @@
 # CURRENT STATE — sapporchestra
 
-<!-- UPDATE WHEN: a feature ships, a deploy happens, something breaks, or something gets fixed. This file answers "what's the project like *right now*?" -->
+<!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**Last verified:** <!-- FILL IN: YYYY-MM-DD, the date the info below was confirmed -->
+**As of 2026-08-06 — v0.1.0, first working build.**
 
----
+## Working
 
-## What's built and working
+- OrchestraEngine: CC1 dynamics (level+timbre), CC11 expression, stage
+  placement (pan/width/depth), early reflections + 8-line FDN hall, Analog
+  DNA (detune/drift/vintage noise), quality modes, soft limiter, articulation
+  switching by keyswitch injection
+- JUCE plugin builds: Standalone, VST3, AU (auto-copied to ~/Library/Audio/Plug-Ins)
+- UI: articulation chips w/ keyswitch names + live highlight, stage pad,
+  dynamics/expression/hall knobs, keyswitch-colored keyboard, voice count +
+  peak meter, SFZ file loading, built-in Diagnostic Orchestra
+- Host state save/restore (APVTS v1 + sfzPath, diagnostic fallback)
+- Agent CLI (`sapporchestra`): inspect / validate / params / render (JSON,
+  deterministic seeds)
+- Tests: 12 cases green (engine policy, room, deterministic renders)
+- Demo pipeline: scripts/make_demo.py (3 placed stems → mixed WAV)
 
-- <!-- FILL IN: features that exist and function -->
-- 
-- 
+## Known issues / limits
 
-## What's deployed
-
-- **Environment:** <!-- FILL IN: e.g., "production on VPS (see INFRASTRUCTURE.md)", "local only", "staging at staging.example.com" -->
-- **Version / commit:** <!-- FILL IN: short SHA or tag, if relevant -->
-- **Deployed at:** <!-- FILL IN: YYYY-MM-DD -->
-
-## What's in progress
-
-- <!-- FILL IN: things actively being worked on but not done -->
-- 
-
-## What's known broken / flaky
-
-Separate from backlog in TODO.md — these are things that *should* work but don't.
-
-- <!-- FILL IN: e.g., "login breaks on Safari after a 401 refresh" -->
-- 
-
-## Half-finished or abandoned
-
-Code that exists but isn't wired up. Future-you will be confused by this.
-
-- <!-- FILL IN: e.g., "billing/ directory is a dead prototype, don't use" -->
-- 
+- Not yet validated in a DAW session (Reaper/Logic/Live) or with pluginval/auval
+- No library browser/indexer UI yet (single SFZ file loading only)
+- Missing-library relink UI minimal (falls back to diagnostic + status text)
+- Sample streaming pending (inherits SappSounds full-RAM preload)
+- CLI is single-instrument per render (stems for arrangements)
