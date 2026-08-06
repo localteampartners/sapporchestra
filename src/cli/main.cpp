@@ -84,6 +84,32 @@ const ParamSpec kParams[] = {
      "Master output gain in dB."},
 };
 
+// Orchestral seating templates (audience view: negative x = left).
+// Values feed stageX / stageDepth; agents pick by section name.
+struct Seat {
+    const char* name;
+    float x, depth;
+};
+const Seat kSeats[] = {
+    {"violin1", -0.65f, 0.25f}, {"violin2", -0.30f, 0.30f},
+    {"viola", 0.25f, 0.30f},    {"cello", 0.55f, 0.35f},
+    {"bass", 0.75f, 0.50f},     {"flute", -0.10f, 0.50f},
+    {"oboe", 0.15f, 0.50f},     {"clarinet", 0.15f, 0.60f},
+    {"bassoon", -0.10f, 0.60f}, {"horn", -0.45f, 0.65f},
+    {"trumpet", 0.30f, 0.70f},  {"trombone", 0.45f, 0.70f},
+    {"tuba", 0.60f, 0.72f},     {"timpani", 0.10f, 0.85f},
+    {"percussion", -0.30f, 0.85f}, {"harp", -0.70f, 0.60f},
+    {"piano", -0.20f, 0.75f},   {"choir", 0.00f, 0.90f},
+    {"solo", 0.00f, 0.20f},
+};
+
+const Seat* findSeat(const std::string& name)
+{
+    for (const auto& s : kSeats)
+        if (name == s.name) return &s;
+    return nullptr;
+}
+
 InstrumentPtr loadInstrument(const std::string& sfzPath, bool useDiagnostic,
                              std::vector<Diagnostic>& diags,
                              std::vector<std::string>& missing)
@@ -310,6 +336,102 @@ int cmdParams()
     return 0;
 }
 
+int cmdSeats()
+{
+    JsonWriter w;
+    w.beginObject();
+    w.field("ok", true);
+    w.key("seats");
+    w.beginArray();
+    for (const auto& s : kSeats) {
+        w.beginObject();
+        w.field("name", s.name);
+        w.field("stage_x", double(s.x));
+        w.field("stage_depth", double(s.depth));
+        w.endObject();
+    }
+    w.endArray();
+    w.field("doc", "Audience view: negative stage_x = left. Use with render --seat, "
+                   "or set stage_x/stage_depth directly (MIDI CC 16/17 also work).");
+    w.endObject();
+    std::printf("%s\n", w.str().c_str());
+    return 0;
+}
+
+int cmdScan(int argc, char** argv)
+{
+    std::string dir;
+    bool includePartials = false;
+    for (int i = 2; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--all") includePartials = true;
+        else dir = arg;
+    }
+    if (dir.empty()) {
+        std::fprintf(stderr, "usage: sapporchestra scan <library-dir> [--all]\n");
+        return 2;
+    }
+
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    if (!fs::is_directory(dir, ec)) {
+        std::fprintf(stderr, "error: not a directory: %s\n", dir.c_str());
+        return 2;
+    }
+
+    std::vector<fs::path> files;
+    for (auto it = fs::recursive_directory_iterator(
+             dir, fs::directory_options::skip_permission_denied, ec);
+         !ec && it != fs::recursive_directory_iterator(); ++it) {
+        if (!it->is_regular_file(ec)) continue;
+        auto ext = it->path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+                       [](unsigned char c) { return char(std::tolower(c)); });
+        if (ext != ".sfz") continue;
+        // Skip include-partials (conventionally kept in "includes/" folders)
+        // unless --all: they are fragments, not playable instruments.
+        if (!includePartials) {
+            bool partial = false;
+            for (const auto& part : it->path().parent_path())
+                if (part == "includes") partial = true;
+            if (partial) continue;
+        }
+        files.push_back(it->path());
+    }
+    std::sort(files.begin(), files.end());
+
+    sapp::sounds::SfzParser parser;
+    JsonWriter w;
+    w.beginObject();
+    w.field("ok", true);
+    w.field("root", dir);
+    w.key("instruments");
+    w.beginArray();
+    size_t playable = 0;
+    for (const auto& file : files) {
+        auto parsed = parser.parseFile(file);
+        const auto& def = parsed.instrument;
+        if (def.regions.empty()) continue;
+        ++playable;
+        w.beginObject();
+        w.field("path", file.string());
+        w.field("name", def.name);
+        w.field("category",
+                fs::relative(file.parent_path(), dir, ec).string());
+        w.field("regions", uint64_t(def.regions.size()));
+        w.field("articulations", uint64_t(def.articulations.size()));
+        w.field("keyswitches", def.keyswitchLo >= 0);
+        w.field("lowKey", int(def.loKeyUsed));
+        w.field("highKey", int(def.hiKeyUsed));
+        w.endObject();
+    }
+    w.endArray();
+    w.field("count", uint64_t(playable));
+    w.endObject();
+    std::printf("%s\n", w.str().c_str());
+    return 0;
+}
+
 int cmdRender(int argc, char** argv)
 {
     std::string sfzPath, midiPath, outPath;
@@ -328,6 +450,17 @@ int cmdRender(int argc, char** argv)
         else if (arg == "--seed") options.seed = uint32_t(std::strtoul(next().c_str(), nullptr, 10));
         else if (arg == "--tail") options.tailSeconds = std::atof(next().c_str());
         else if (arg == "--articulation") articulation = std::atoi(next().c_str());
+        else if (arg == "--seat") {
+            const std::string name = next();
+            const auto* seat = findSeat(name);
+            if (seat == nullptr) {
+                std::fprintf(stderr, "error: unknown seat '%s' (see: sapporchestra seats)\n",
+                             name.c_str());
+                return 2;
+            }
+            options.params.stageX = seat->x;
+            options.params.stageDepth = seat->depth;
+        }
         else if (arg == "--param") {
             const std::string kv = next();
             const size_t eq = kv.find('=');
@@ -416,8 +549,10 @@ int main(int argc, char** argv)
                      "  sapporchestra inspect  (--sfz <f.sfz> | --diagnostic) [--regions]\n"
                      "  sapporchestra validate --sfz <f.sfz>\n"
                      "  sapporchestra params\n"
+                     "  sapporchestra seats\n"
+                     "  sapporchestra scan <library-dir> [--all]\n"
                      "  sapporchestra render   (--sfz | --diagnostic) --midi <f.mid> --out <f.wav>\n"
-                     "                         [--articulation IDX] [--param NAME=VALUE ...]\n");
+                     "                         [--articulation IDX] [--seat NAME] [--param NAME=VALUE ...]\n");
         return 2;
     }
     const std::string cmd = argv[1];
@@ -436,6 +571,8 @@ int main(int argc, char** argv)
         return cmdValidate(sfzPath);
     }
     if (cmd == "params") return cmdParams();
+    if (cmd == "seats") return cmdSeats();
+    if (cmd == "scan") return cmdScan(argc, argv);
     if (cmd == "render") return cmdRender(argc, argv);
 
     std::fprintf(stderr, "unknown command '%s'\n", cmd.c_str());

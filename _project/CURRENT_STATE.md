@@ -2,7 +2,7 @@
 
 <!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**As of 2026-08-06 — v0.1.1: v0.1.0 + SappLink CC-in.**
+**As of 2026-08-06 — v0.2.0: real-library validated (Sonatina).**
 
 ## Working
 
@@ -18,13 +18,17 @@
 - Agent CLI (`sapporchestra`): inspect / validate / params / render (JSON,
   deterministic seeds)
 - Tests: 12 cases green (engine policy, room, deterministic renders)
-- Demo pipeline: scripts/make_demo.py (3 placed stems → mixed WAV)
+- Demo pipeline: scripts/make_demo.py + scripts/make_sonatina_demo.py
+  (real 7-section Sonatina piece: seated stems, shared hall)
+- CLI scan (library discovery) + seats (orchestral seating templates,
+  render --seat)
 - SappLink CC-in: 10 CCs → parameters (manifest-driven, drift-guarded),
   plugin slew path + CLI/offline path; CC1/CC11/CC64 stay engine-native
 
 ## Known issues / limits
 
 - Not yet validated in a DAW session (Reaper/Logic/Live) or with pluginval/auval
+- VPO download link not yet sourced (Sonatina 747-file library fully working)
 - No library browser/indexer UI yet (single SFZ file loading only)
 - Missing-library relink UI minimal (falls back to diagnostic + status text)
 - Sample streaming pending (inherits SappSounds full-RAM preload)

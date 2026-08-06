@@ -2,6 +2,13 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-06 — v0.2.0
+- Real-library milestone: Sonatina Symphonic Orchestra loads and plays
+  (FLAC via SappSounds v0.2.0; 8-articulation keyswitch patches verified)
+- CLI: scan (library discovery JSON), seats (orchestral seating templates)
+  + render --seat; params in stems demo
+- scripts/make_sonatina_demo.py: 7 real sections seated in one hall
+
 ## 2026-08-06 — v0.1.1
 - SappLink v1 MIDI CC-in: table-driven map (src/core/SappLinkCCMap) of 10
   CCs to stable parameter IDs per sapptune's sapporchestra.json manifest

@@ -119,13 +119,39 @@ sapporchestra render (--sfz <file.sfz> | --diagnostic) \
 Result: `{"ok":true, "out":..., "frames":N, "durationSeconds":s,
 "peak":p, "rms":r, "midiEvents":N, "seed":N}`.
 
+## scan
+
+```bash
+sapporchestra scan <library-dir> [--all]
+```
+
+Walks a library folder for `.sfz` instruments (skipping `includes/`
+partials unless `--all`) and returns
+`{"instruments":[{path,name,category,regions,articulations,keyswitches,
+lowKey,highKey}], "count":N}` — parse-only, fast (747-file Sonatina scans in
+seconds). This is how an agent discovers what it can write for.
+
+## seats
+
+```bash
+sapporchestra seats
+```
+
+Standard orchestral seating templates (`violin1 violin2 viola cello bass
+flute oboe clarinet bassoon horn trumpet trombone tuba timpani percussion
+harp piano choir solo`), each with `stage_x`/`stage_depth`. Use with
+`render --seat cello`, or set the params/CCs directly. Explicit `--param`
+after `--seat` overrides it.
+
 ## Multi-instrument arrangements
 
 Render one stem per instrument/section (different `--sfz`, `stage_x`,
 `stage_depth`, shared `hall_*` values), then mix stems; keeping hall
 parameters identical preserves the one-room illusion.
-[scripts/make_demo.py](../scripts/make_demo.py) is a working example
-(3 articulation stems → placed → mixed → normalized).
+[scripts/make_demo.py](../scripts/make_demo.py) is a minimal example, and
+[scripts/make_sonatina_demo.py](../scripts/make_sonatina_demo.py) renders a
+full 7-section piece with the real Sonatina Symphonic Orchestra (seated
+sections, shared hall, CC1 phrasing).
 
 ## Lower-level engine tools
 
