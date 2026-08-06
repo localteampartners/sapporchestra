@@ -38,6 +38,8 @@ struct OrchestraParams {
     float hallDecay = 2.6f;       // seconds
     float hallDamping = 0.45f;
     float hallModulation = 0.35f;
+    // Performance policy
+    float legato = 1.0f;          // >= 0.5 = legato level 2 on (CC 68)
     // Analog DNA
     int dnaMode = 1;              // 0 clean, 1 cohesive, 2 vintage
     float dnaAmount = 0.18f;
@@ -112,6 +114,7 @@ private:
           lastDepthForEarly_ = -1.0f;
     int lastQuality_ = -1;
     float lastDnaCents_ = -1.0f;
+    int lastLegato_ = -1;
 };
 
 } // namespace sapp::orchestra

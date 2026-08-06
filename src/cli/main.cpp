@@ -80,6 +80,8 @@ const ParamSpec kParams[] = {
      "High-frequency damping of the hall tail."},
     {"dna_amount", "dnaAmount", &OrchestraParams::dnaAmount, 0.0f, 1.0f, 0.18f, -1,
      "Analog DNA amount: humanized per-note tuning, gentle drift."},
+    {"legato", "legato", &OrchestraParams::legato, 0.0f, 1.0f, 1.0f, -1,
+     "Legato level 2: overlapping single-line notes slur (attack suppressed, previous note fades). Chord-safe. >=0.5 = on."},
     {"master_gain_db", "masterGain", &OrchestraParams::masterGainDb, -24.0f, 12.0f, 0.0f, -1,
      "Master output gain in dB."},
 };

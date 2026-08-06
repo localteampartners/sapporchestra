@@ -22,6 +22,7 @@ and `src/core/SappLinkCCMap.cpp` together.
 | 18 | `width` | 0 … 2 | linear |
 | 19 | `hallDamping` | 0 … 1 | linear |
 | 26 | `dnaAmount` | 0 … 1 | linear |
+| 68 | `legato` | 0 … 1 (≥0.5 on) | linear |
 | 91 | `tailLevel` | 0 … 1 | linear |
 | 92 | `hallSize` | 0.2 … 1.5 | linear |
 
@@ -35,6 +36,8 @@ MIDI channel.
   controls (OrchestraEngine live-follows them); clips should keep using them
   per the SappLink standard-CC conventions.
 - **CC 64** — real sustain-pedal semantics (deferred releases) in SappSounds.
+  (CC 68 legato-footswitch IS mapped — it toggles the `legato` parameter,
+  matching its MMA meaning.)
 - **Pitch bend** — voice pitch, per `midi.pitchBendRangeSemitones`.
 - **Keyswitch notes** — articulation switching stays note-based; the per-
   instrument keyswitch table is discoverable via `sapporchestra inspect`.

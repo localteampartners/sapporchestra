@@ -122,6 +122,7 @@ private:
     std::unique_ptr<Knob> master_;
     juce::ComboBox dnaMode_, quality_;
     juce::ToggleButton limiter_{"limiter"};
+    juce::ToggleButton legato_{"legato"};
     std::unique_ptr<StagePad> stagePad_;
     std::unique_ptr<OrchestraKeyboard> keyboard_;
 
@@ -134,7 +135,7 @@ private:
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     std::vector<std::unique_ptr<SliderAttachment>> sliderAttachments_;
     std::unique_ptr<ComboAttachment> dnaModeAttachment_, qualityAttachment_;
-    std::unique_ptr<ButtonAttachment> limiterAttachment_;
+    std::unique_ptr<ButtonAttachment> limiterAttachment_, legatoAttachment_;
 
     std::unique_ptr<juce::FileChooser> fileChooser_;
 

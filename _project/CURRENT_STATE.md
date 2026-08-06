@@ -2,7 +2,7 @@
 
 <!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**As of 2026-08-06 — v0.2.0: real-library validated (Sonatina).**
+**As of 2026-08-06 — v0.3.0: expressive (legato + dynamic morphing).**
 
 ## Working
 

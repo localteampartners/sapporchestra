@@ -372,6 +372,8 @@ SappOrchestraEditor::SappOrchestraEditor(SappOrchestraProcessor& processor)
 
     limiterAttachment_ = std::make_unique<ButtonAttachment>(state, "limiter", limiter_);
     addAndMakeVisible(limiter_);
+    legatoAttachment_ = std::make_unique<ButtonAttachment>(state, "legato", legato_);
+    addAndMakeVisible(legato_);
 
     stagePad_ = std::make_unique<StagePad>(state);
     addAndMakeVisible(*stagePad_);
@@ -553,6 +555,7 @@ void SappOrchestraEditor::resized()
 
     voicesLabel_.setBounds(s(14), s(556), s(90), s(20));
     meterArea_ = {s(110), s(560), s(150), s(14)};
+    legato_.setBounds(getWidth() - s(340), s(556), s(84), s(24));
     quality_.setBounds(getWidth() - s(250), s(556), s(92), s(24));
     limiter_.setBounds(getWidth() - s(150), s(556), s(90), s(24));
 }

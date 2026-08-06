@@ -91,6 +91,11 @@ void OrchestraEngine::applyQuality(const OrchestraParams& p) noexcept
         lastDnaCents_ = cents;
         sampler_.setRandomTuneCents(cents);
     }
+    const int legato = p.legato >= 0.5f ? 1 : 0;
+    if (legato != lastLegato_) {
+        lastLegato_ = legato;
+        sampler_.setLegato(legato != 0);
+    }
 }
 
 void OrchestraEngine::process(const MidiEvent* events, int eventCount,

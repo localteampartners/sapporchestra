@@ -16,6 +16,7 @@
     { "id": "width",       "label": "Width",             "cc": 18,  "range": [0, 2],     "curve": "linear", "tags": ["width", "space"] },
     { "id": "hallDamping", "label": "Hall Damping",      "cc": 19,  "range": [0, 1],     "curve": "linear", "tags": ["space", "tone"] },
     { "id": "dnaAmount",   "label": "Analog DNA",        "cc": 26,  "range": [0, 1],     "curve": "linear", "tags": ["humanize", "waver", "vintage"] },
+    { "id": "legato",      "label": "Legato",            "cc": 68,  "range": [0, 1],     "curve": "linear", "tags": ["legato", "phrasing"] },
     { "id": "tailLevel",   "label": "Hall Level",        "cc": 91,  "range": [0, 1],     "curve": "linear", "tags": ["space", "reverb"] },
     { "id": "hallSize",    "label": "Hall Size",         "cc": 92,  "range": [0.2, 1.5], "curve": "linear", "tags": ["space"] }
   ],

@@ -41,6 +41,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout SappOrchestraProcessor::make
                                    Range{0.3f, 12.0f, 0.01f, 0.5f}, 2.6f));
     layout.add(std::make_unique<P>(juce::ParameterID{"hallDamping", 1}, "Hall Damping",
                                    Range{0.0f, 1.0f, 0.001f}, 0.45f));
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"legato", 1}, "Legato", true));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{"dnaMode", 1}, "Analog DNA Mode",
         juce::StringArray{"Clean", "Cohesive", "Vintage"}, 1));
@@ -74,6 +76,7 @@ SappOrchestraProcessor::SappOrchestraProcessor()
     pHallSize_ = raw("hallSize");
     pHallDecay_ = raw("hallDecay");
     pHallDamping_ = raw("hallDamping");
+    pLegato_ = raw("legato");
     pDnaMode_ = raw("dnaMode");
     pDnaAmount_ = raw("dnaAmount");
     pMaster_ = raw("masterGain");
@@ -153,6 +156,7 @@ void SappOrchestraProcessor::pushParamsToEngine()
     p.hallSize = pHallSize_->load();
     p.hallDecay = pHallDecay_->load();
     p.hallDamping = pHallDamping_->load();
+    p.legato = pLegato_->load();
     p.dnaMode = int(pDnaMode_->load());
     p.dnaAmount = pDnaAmount_->load();
     p.masterGainDb = pMaster_->load();

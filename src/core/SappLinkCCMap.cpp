@@ -19,6 +19,7 @@ const std::array<CCMapping, kNumMappings>& mappings()
         { 18, "width",       &OrchestraParams::width,        0.0f,   2.0f,  Curve::Linear },
         { 19, "hallDamping", &OrchestraParams::hallDamping,  0.0f,   1.0f,  Curve::Linear },
         { 26, "dnaAmount",   &OrchestraParams::dnaAmount,    0.0f,   1.0f,  Curve::Linear },
+        { 68, "legato",      &OrchestraParams::legato,       0.0f,   1.0f,  Curve::Linear },
         { 91, "tailLevel",   &OrchestraParams::tailLevel,    0.0f,   1.0f,  Curve::Linear },
         { 92, "hallSize",    &OrchestraParams::hallSize,     0.2f,   1.5f,  Curve::Linear },
     } };

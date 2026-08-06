@@ -91,6 +91,7 @@ MIDI, `cc` (+`ccCurve`, or `ccNative` for engine-handled controllers).
 | hall_decay | hallDecay | 0.3–12 | 2.6 | 15 (log) | T60 seconds |
 | hall_damping | hallDamping | 0–1 | 0.45 | 19 | HF damping |
 | dna_amount | dnaAmount | 0–1 | 0.18 | 26 | ensemble detune/drift amount |
+| legato | legato | 0–1 | 1.0 | 68 | slurred lines: attack suppression + transition fades (chord-safe) |
 | master_gain_db | masterGain | −24–12 | 0 | 7 | output gain |
 | dna_mode | dnaMode | enum | 1 | — | 0 clean · 1 cohesive · 2 vintage |
 | quality | quality | enum | 1 | — | 0 draft (linear) · 1 normal (cubic) |

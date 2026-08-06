@@ -2,6 +2,14 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-06 — v0.3.0
+- Legato level 2 shipped: legato parameter (default on), CC 68
+  (MMA legato footswitch) in the SappLink manifest, UI toggle; engine
+  mechanism in SappSounds v0.3.0 (attack suppression + transition fades,
+  chord-guarded)
+- CC1 dynamics now truly morph dynamic layers on crossfade-capable
+  instruments (SappSounds xfin/xfout); Diagnostic Orchestra demonstrates it
+
 ## 2026-08-06 — v0.2.0
 - Real-library milestone: Sonatina Symphonic Orchestra loads and plays
   (FLAC via SappSounds v0.2.0; 8-articulation keyswitch patches verified)

@@ -88,6 +88,7 @@ private:
     std::atomic<float>* pHallSize_ = nullptr;
     std::atomic<float>* pHallDecay_ = nullptr;
     std::atomic<float>* pHallDamping_ = nullptr;
+    std::atomic<float>* pLegato_ = nullptr;
     std::atomic<float>* pDnaMode_ = nullptr;
     std::atomic<float>* pDnaAmount_ = nullptr;
     std::atomic<float>* pMaster_ = nullptr;
@@ -108,7 +109,7 @@ private:
         float target = 0.0f, current = 0.0f;
         bool active = false;
     };
-    std::array<CcSlew, 10> ccSlews_;
+    std::array<CcSlew, 11> ccSlews_;
     void handleSappLinkCc(int ccNumber, int ccValue);
     void advanceCcSlews(int numSamples);
 
