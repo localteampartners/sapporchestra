@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/localteampartners/sapptest/schemas/finding.schema.json",
+  "title": "sapptest finding",
+  "description": "Validates the YAML front matter of a findings/F-NNNN-<slug>.md file, read as a JSON object. Findings are live state: a fixed finding is deleted, so there is no closed status.",
+  "type": "object",
+  "required": [
+    "id",
+    "id_key",
+    "title",
+    "severity",
+    "status",
+    "category",
+    "found_date",
+    "files",
+    "refactor",
+    "repro",
+    "expected",
+    "actual",
+    "suggested_fix"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^F-[0-9]{4}$",
+      "description": "Stable ID minted per PLAYBOOK.md C1 (cksum of id_key mod 10000)."
+    },
+    "id_key": {
+      "type": "string",
+      "pattern": "^[^|]+\\|[^|]+$",
+      "description": "Hash input: '<primary file>|<title-slug>'. Never changes after minting, even if the title is reworded."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 120,
+      "description": "One line, symptom-first, present tense."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["sev1", "sev2", "sev3", "sev4"],
+      "description": "Per config/severity.yml definitions. Judge impact, not effort."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open"],
+      "description": "Always open; fixed findings are deleted by the verifying audit."
+    },
+    "category": {
+      "type": "string",
+      "enum": ["bug", "security", "perf", "a11y", "docs-drift", "test-gap", "refactor", "other"]
+    },
+    "found_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "files": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Repo-relative paths. First entry is the primary file used in id_key."
+    },
+    "refactor": {
+      "type": "boolean",
+      "description": "true = the refactor procedure may open a PR applying suggested_fix."
+    },
+    "repro": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Steps or trace that demonstrates the issue. For non-bug categories: how to observe it."
+    },
+    "expected": { "type": "string", "minLength": 1 },
+    "actual": { "type": "string", "minLength": 1 },
+    "suggested_fix": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Concrete enough to apply without re-deriving the analysis."
+    },
+    "branch": {
+      "type": "string",
+      "description": "Optional, refactor findings: refactor/F-NNNN-<slug>."
+    },
+    "pr_title": {
+      "type": "string",
+      "description": "Optional, refactor findings: [F-NNNN] <summary>."
+    }
+  },
+  "additionalProperties": false
+}

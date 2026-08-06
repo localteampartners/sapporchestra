@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/localteampartners/sapptest/schemas/verdict.schema.json",
+  "title": "sapptest verdict",
+  "description": "Validates verdict/latest.json — the single file /ship consults. Produced per PLAYBOOK.md C3 by applying config/ship-rules.yml to open findings.",
+  "type": "object",
+  "required": [
+    "verdict",
+    "reason",
+    "audit_date",
+    "sapptest_version",
+    "findings_open",
+    "sev_counts",
+    "blocking"
+  ],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["SHIP", "SHIP WITH CAVEATS", "BLOCK"]
+    },
+    "reason": {
+      "type": "string",
+      "description": "Machine-greppable code. Known values: clean, minor_findings_only, open_findings_below_threshold, sev1_open, sev2_over_threshold, audit_stale, no_audit_yet.",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "audit_date": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Date of the pass that produced this verdict. null only in the pre-audit default (reason no_audit_yet). /ship treats dates older than audit_staleness_days or older than the newest commit as stale."
+    },
+    "sapptest_version": {
+      "type": "string",
+      "description": "Contents of _test/VERSION at verdict time."
+    },
+    "findings_open": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sev_counts": {
+      "type": "object",
+      "required": ["sev1", "sev2", "sev3", "sev4"],
+      "properties": {
+        "sev1": { "type": "integer", "minimum": 0 },
+        "sev2": { "type": "integer", "minimum": 0 },
+        "sev3": { "type": "integer", "minimum": 0 },
+        "sev4": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "blocking": {
+      "type": "array",
+      "description": "Findings that triggered a BLOCK (all open sev1s; sev2 overflow). Empty unless verdict is BLOCK.",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "title"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^F-[0-9]{4}$" },
+          "severity": { "type": "string", "enum": ["sev1", "sev2", "sev3", "sev4"] },
+          "title": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional one-or-two-line context for humans."
+    }
+  },
+  "additionalProperties": false
+}

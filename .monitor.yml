@@ -1,0 +1,89 @@
+# .monitor.yml — drop this file at the root of any project you want the
+# sapplab "monitor" dashboard (https://monitor.sapplab.net) to know about.
+#
+# Edit every field marked REQUIRED. Remove fields you don't need — comments
+# and unused optional keys are fine to delete.
+#
+# UPDATE WHEN: health-check URLs change, stack changes, deploy target changes,
+# new subdomains, or the project's purpose/features materially change.
+# Fastest path: run `/monitor` and Claude regenerates this file from the repo.
+#
+# Schema version: 1
+
+schema: 1
+
+# ── Identity ──────────────────────────────────────────────────────────────
+id: sapporchestra           # REQUIRED. lowercase-kebab, stable, unique across all your projects
+name: "sapporchestra"       # REQUIRED. human-readable (upgrade to proper title case)
+description: >                 # REQUIRED. 1–3 sentences: what this does and who/what it's for
+  Professional orchestral sample instrument (JUCE Standalone/VST3/AU) built on the SappSounds engine: articulation management, CC1 dynamics / CC11 expression, stage placement, early reflections + shared hall, Analog DNA character, and an agent-facing CLI/JSON API for MIDI-generation software.
+
+status: paused                 # active | paused | archived
+tags: [web, internal]          # free-form labels for filtering in the dashboard
+owner: localteampartners@gmail.com
+
+# ── Where it lives ────────────────────────────────────────────────────────
+urls:
+  primary: https://example.com          # REQUIRED. the main public / canonical URL
+  admin: https://example.com/admin      # optional
+  docs: https://example.com/docs        # optional
+  repo: https://github.com/you/repo     # optional
+
+host:
+  vps: none                 # which VPS profile this runs on (matches ~/.vps-proxy profile name). use "none" for SaaS/static
+  path: /var/www/example       # deploy path on the VPS, if applicable
+  process_manager: pm2         # pm2 | systemd | docker | none
+  pm2_name: example-api        # if process_manager is pm2
+  nginx_site: example.com      # filename under /etc/nginx/sites-available, if any
+
+# ── Stack ─────────────────────────────────────────────────────────────────
+stack:
+  runtime: "node 22"           # e.g. "node 22", "python 3.12", "php 8.3", "static"
+  framework: "next.js 15"      # e.g. "fastify", "django", "wordpress", "astro"
+  database: "postgres 16"      # or "sqlite" / "mysql 8" / "none"
+  key_libraries: []            # only ones that meaningfully shape the code
+  external_services:           # anything this project depends on across the network
+    - stripe
+    - openai
+
+# ── Functionality ─────────────────────────────────────────────────────────
+purpose: >                     # REQUIRED. why this project exists — the problem it solves
+  What problem this project solves and for whom.
+
+features:                      # bullet list of what the app actually does
+  - User-facing feature A
+  - Admin feature B
+  - Scheduled job C
+
+# ── Health checks ─────────────────────────────────────────────────────────
+# The monitor runs these on a schedule and marks the project up/down.
+# You can define multiple checks per project.
+checks:
+  - name: homepage              # REQUIRED per check
+    type: http                  # http | tcp | ping
+    url: https://example.com    # required for http
+    method: GET                 # default GET
+    expect_status: 200          # default 200; can be a list e.g. [200, 301]
+    expect_body_contains: ""    # optional substring match
+    timeout_ms: 5000            # default 5000
+    interval_seconds: 60        # default 60
+    headers: {}                 # optional request headers (no secrets — see notes below)
+
+  # Example TCP check
+  # - name: postgres
+  #   type: tcp
+  #   host: db.internal
+  #   port: 5432
+  #   interval_seconds: 120
+
+# ── Notes for future-me ───────────────────────────────────────────────────
+notes: |
+  Anything worth remembering: gotchas, deploy quirks, who to call, known
+  flaky behavior, etc. Free-form markdown.
+
+# ── Secrets policy ────────────────────────────────────────────────────────
+# This file lives in the project repo. DO NOT put credentials here.
+# If a health check needs auth (e.g. a private /healthz with a bearer token),
+# leave it out of `headers` and instead configure it inside the monitor app
+# itself, keyed by this project's `id`. The monitor will merge the two at
+# probe time.

@@ -1,0 +1,15 @@
+# adapters.yml — detection file → runner mapping (PLAYBOOK C5).
+# Run EVERY adapter whose detect file exists at the project root; mixed
+# stacks run all matching runners. Exit codes are normalized by the
+# runners: 0 pass · 1 failures · 2 not applicable · 3 environment error.
+
+adapters:
+  node:
+    detect: ["package.json"]
+    runner: "runners/run-node.sh"
+  python:
+    detect: ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt"]
+    runner: "runners/run-python.sh"
+  go:
+    detect: ["go.mod"]
+    runner: "runners/run-go.sh"

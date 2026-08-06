@@ -1,0 +1,18 @@
+# coverage-goals.yml — what a full audit must cover, and how deep.
+# "Done" for an audit pass = every category at its listed depth, or
+# explicitly recorded as n/a in the report. Depths:
+#   skip    — do not spend tokens on it this pass
+#   shallow — entry points + one representative path per feature
+#   normal  — all critical paths (auth, data writes, money, user input)
+#   deep    — normal + edge cases, concurrency, failure injection reasoning
+# Projects may tune depths; keep the keys.
+
+categories:
+  unit:          { depth: normal,  note: "native tests run via runners/; gaps on critical paths are test-gap findings" }
+  integration:   { depth: normal,  note: "module boundaries and external-service seams" }
+  e2e:           { depth: shallow, note: "main user journey end to end, by reading or running" }
+  contract:      { depth: normal,  note: "caller/callee + API/schema agreement" }
+  security:      { depth: normal,  note: "prompts/security.md; scanner depth belongs to sappsecurity" }
+  perf:          { depth: shallow, note: "prompts/perf.md; smoke only, no benchmarking" }
+  a11y:          { depth: shallow, note: "prompts/a11y.md; UI projects only, else n/a" }
+  docs_drift:    { depth: shallow, note: "CURRENT_STATE staleness only; full pass is the docs-drift procedure" }

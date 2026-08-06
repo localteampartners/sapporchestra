@@ -1,0 +1,12 @@
+{
+  "verdict": "BLOCK",
+  "reason": "sev1_open",
+  "audit_date": "2026-06-10",
+  "sapptest_version": "0.1.0",
+  "findings_open": 4,
+  "sev_counts": { "sev1": 1, "sev2": 1, "sev3": 2, "sev4": 0 },
+  "blocking": [
+    { "id": "F-7204", "severity": "sev1", "title": "login rejects valid JWT" }
+  ],
+  "notes": "Fix F-7204, then re-run /audit to refresh this verdict."
+}

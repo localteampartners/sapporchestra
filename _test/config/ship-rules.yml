@@ -1,0 +1,24 @@
+# ship-rules.yml — declarative rules that produce verdict/latest.{md,json}.
+# Evaluation order (PLAYBOOK C3, first match wins):
+#   1. BLOCK   — any block_threshold exceeded (counts are STRICTLY greater-than)
+#   2. CAVEATS — any caveat_threshold met (counts are greater-than-or-equal)
+#   3. SHIP    — otherwise
+# /ship additionally treats the verdict as BLOCK(audit_stale) at read time if
+# audit_date exceeds audit_staleness_days or predates the newest commit.
+
+block_thresholds:
+  sev1: 0      # any open sev1 → BLOCK (reason: sev1_open)
+  sev2: 3      # > 3 open sev2 → BLOCK (reason: sev2_over_threshold)
+
+caveat_thresholds:
+  sev2: 1      # ≥ 1 open sev2 → SHIP WITH CAVEATS (user must acknowledge)
+  sev3: 5      # ≥ 5 open sev3 → SHIP WITH CAVEATS
+
+# Verdict freshness window, enforced by the reader (/ship).
+audit_staleness_days: 14
+
+# How refactor phase B opens PRs:
+#   per-finding (default) — one PR per finding tagged refactor: true
+#   batched               — one PR covering all of them (opt-in; use when
+#                           per-finding would flood review, e.g. 10+ findings)
+refactor_mode: per-finding

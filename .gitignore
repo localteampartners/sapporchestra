@@ -1,0 +1,39 @@
+# secrets & env
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# deps & build
+node_modules/
+dist/
+build/
+out/
+.next/
+target/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# logs & runtime
+*.log
+logs/
+pids/
+*.pid
+
+# editor & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# local-only tooling state
+.claude/settings.local.json
+.sappcode/             # plugin scratch state (plan files, disabled list)
+.sappchatbot/          # chatbot credentials (gitignored regardless of plugin state)
+.sappbackup/snapshots/ # local backup metadata, if any

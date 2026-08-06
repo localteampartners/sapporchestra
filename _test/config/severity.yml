@@ -1,0 +1,25 @@
+# severity.yml — sev1–sev4 ↔ TODO priority + ship impact.
+# Shared taxonomy between sapptest and sappcode: todo_priority names map to
+# _project/TODO.md sections ("Next up" / "Backlog" / "Ideas / maybe").
+# ship_impact is informational here; the actual thresholds live in
+# ship-rules.yml. Judge severity by user/data impact, never by fix effort.
+
+sev1:
+  description: "Bug, vulnerability, or correctness issue that must be fixed before next ship — data loss, auth bypass, broken core flow."
+  todo_priority: "next-up"
+  ship_impact: "blocks (any open sev1)"
+
+sev2:
+  description: "Significant defect or risk; should be fixed soon — wrong results on real paths, exploitable with preconditions, failing tests."
+  todo_priority: "next-up"
+  ship_impact: "caveats; blocks over the sev2 threshold in ship-rules.yml"
+
+sev3:
+  description: "Moderate issue or maintainability concern; goes in backlog — degraded UX, perf at scale, misleading docs, bug-breeding structure."
+  todo_priority: "backlog"
+  ship_impact: "caveats over the sev3 threshold in ship-rules.yml"
+
+sev4:
+  description: "Minor improvement or polish; nice-to-have."
+  todo_priority: "ideas"
+  ship_impact: "never affects the verdict"
