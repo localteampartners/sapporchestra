@@ -2,6 +2,12 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-06 — v0.3.1
+- Virtual Playing Orchestra validated end-to-end (454/454; DXF dynamic
+  crossfade patches morph real recorded pp/ff layers on CC1)
+- scripts/make_vpo_demo.py: 7-section VPO piece (DXF horns swelling)
+- TODO: VPO validation checked off the master list
+
 ## 2026-08-06 — v0.3.0
 - Legato level 2 shipped: legato parameter (default on), CC 68
   (MMA legato footswitch) in the SappLink manifest, UI toggle; engine
