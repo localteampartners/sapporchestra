@@ -51,13 +51,20 @@ public:
     juce::AudioProcessorValueTreeState& valueTree() { return apvts_; }
     sapp::orchestra::OrchestraEngine& engine() { return engine_; }
 
-    // Async instrument management (message thread).
+    // Async instrument management (message thread). Loads target the
+    // SELECTED slot (one slot per MIDI channel; see OrchestraEngine).
     void loadSfzInstrument(const juce::File& sfzFile);
     void loadDiagnosticInstrument();
     juce::String currentInstrumentName() const;
-    juce::String currentInstrumentPath() const { return sfzPath_; }
+    juce::String currentInstrumentPath() const { return slotPaths_[size_t(selectedSlot_)]; }
     juce::String loadStatus() const;
     bool isLoading() const { return loading_.load(); }
+
+    // Multitimbral slots (message/UI thread).
+    int selectedSlot() const { return selectedSlot_; }
+    void selectSlot(int slot);
+    bool slotOccupied(int slot) const { return engine_.slotOccupied(slot); }
+    juce::String slotName(int slot) const;
 
     // Articulations of the loaded instrument (message/UI thread).
     juce::StringArray articulationNames() const;
@@ -72,7 +79,7 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
     void pushParamsToEngine();
     void finishLoad(sapp::sounds::LoadResult result, const juce::String& path,
-                    uint64_t generation);
+                    uint64_t generation, int slot);
 
     juce::AudioProcessorValueTreeState apvts_;
     sapp::orchestra::OrchestraEngine engine_;
@@ -115,8 +122,10 @@ private:
 
     std::vector<sapp::sounds::MidiEvent> eventScratch_;
 
-    juce::String sfzPath_;                 // "" = diagnostic instrument
-    juce::String instrumentName_{"(loading)"};
+    int selectedSlot_ = 0;
+    std::array<juce::String, 16> slotPaths_;   // "" = empty / diagnostic
+    std::array<juce::String, 16> slotNames_;
+    float lastStageX_ = -99.0f, lastStageDepth_ = -99.0f, lastWidth_ = -99.0f;
     juce::String loadStatus_{"starting"};
     std::atomic<bool> loading_{false};
     std::atomic<uint64_t> loadGeneration_{0};

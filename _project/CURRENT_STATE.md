@@ -6,6 +6,9 @@
 
 ## Working
 
+- Multitimbral rack: 16 channel slots (per-slot instrument/stage/CCs, shared
+  hall, omni fallback, channel strip UI, state v2)
+
 - OrchestraEngine: CC1 dynamics (level+timbre), CC11 expression, stage
   placement (pan/width/depth), early reflections + 8-line FDN hall, Analog
   DNA (detune/drift/vintage noise), quality modes, soft limiter, articulation

@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include <cmath>
 #include <vector>
@@ -9,6 +10,7 @@
 
 using namespace sapp::orchestra;
 using sapp::sounds::MidiEvent;
+using Catch::Approx;
 
 namespace {
 
@@ -70,6 +72,7 @@ OrchestraEngine& freshEngine(OrchestraEngine& engine, OrchestraParams params = {
 {
     engine.prepare(48000, 512);
     engine.setParams(params);
+    engine.setSlotStage(0, params.stageX, params.stageDepth, params.width);
     engine.setInstrument(sapp::sounds::makeDiagnosticInstrument({48000, 1.2f, 0.5f, 11}));
     return engine;
 }
@@ -186,4 +189,126 @@ TEST_CASE("output is always finite, limiter caps extremes", "[orchestra]")
         REQUIRE(std::isfinite(v));
         REQUIRE(std::abs(v) <= 1.0f);
     }
+}
+
+// ----------------------------------------------------------- multitimbral ---
+
+namespace {
+
+std::shared_ptr<sapp::sounds::LoadedInstrument> sineInstrument(double freq)
+{
+    auto inst = std::make_shared<sapp::sounds::LoadedInstrument>();
+    inst->definition.name = "sine";
+    sapp::sounds::SampleData s;
+    s.sampleRate = 48000;
+    s.channels = 1;
+    s.frames = 48000;
+    s.data.assign(1, std::vector<float>(48000, 0.0f));
+    for (size_t i = 0; i < 48000; ++i)
+        s.data[0][i] = 0.5f * float(std::sin(2.0 * 3.14159265358979 * freq * double(i) / 48000.0));
+    inst->samples.push_back(std::move(s));
+    sapp::sounds::RegionDefinition r;
+    r.sample = 0;
+    r.samplePath = "gen";
+    r.rootKey = 69;
+    r.loKey = 0;
+    r.hiKey = 127;
+    r.ampeg.release = 0.01f;
+    inst->definition.regions.push_back(r);
+    return inst;
+}
+
+MidiEvent onCh(uint32_t frame, uint8_t note, uint8_t vel, uint8_t channel)
+{
+    MidiEvent e = noteOn(frame, note, vel);
+    e.channel = channel;
+    return e;
+}
+
+MidiEvent ccCh(uint32_t frame, uint8_t num, uint8_t value, uint8_t channel)
+{
+    MidiEvent e = cc(frame, num, value);
+    e.channel = channel;
+    return e;
+}
+
+double dominantFreq(const std::vector<float>& x, size_t a, size_t b)
+{
+    int crossings = 0;
+    for (size_t i = a + 1; i < b && i < x.size(); ++i)
+        if (x[i - 1] <= 0.0f && x[i] > 0.0f) ++crossings;
+    return crossings / (double(b - a) / 48000.0);
+}
+
+} // namespace
+
+TEST_CASE("multitimbral: channels route to their own slots", "[rack]")
+{
+    OrchestraParams dry;
+    dry.tailLevel = 0.0f;
+    dry.earlyLevel = 0.0f;
+    dry.dnaMode = 0;
+    OrchestraEngine engine;
+    engine.prepare(48000, 512);
+    engine.setParams(dry);
+    engine.setInstrument(sineInstrument(300.0), 0);
+    engine.setInstrument(sineInstrument(600.0), 1);
+
+    // Channel 1 (slot 0) only → 300 Hz.
+    auto a = run(engine, {onCh(0, 69, 100, 0)}, 24000);
+    CHECK(dominantFreq(a.left, 4000, 20000) == Approx(300.0).margin(20.0));
+
+    // Fresh engine: channel 2 (slot 1) only → 600 Hz.
+    OrchestraEngine engine2;
+    engine2.prepare(48000, 512);
+    engine2.setParams(dry);
+    engine2.setInstrument(sineInstrument(300.0), 0);
+    engine2.setInstrument(sineInstrument(600.0), 1);
+    auto b = run(engine2, {onCh(0, 69, 100, 1)}, 24000);
+    CHECK(dominantFreq(b.left, 4000, 20000) == Approx(600.0).margin(30.0));
+}
+
+TEST_CASE("multitimbral: omni while only one slot is occupied", "[rack]")
+{
+    OrchestraParams dry;
+    dry.tailLevel = 0.0f;
+    dry.earlyLevel = 0.0f;
+    OrchestraEngine engine;
+    engine.prepare(48000, 512);
+    engine.setParams(dry);
+    engine.setInstrument(sineInstrument(300.0), 0);
+
+    // A note on channel 6 still reaches the single loaded instrument.
+    auto out = run(engine, {onCh(0, 69, 100, 5)}, 12000);
+    CHECK(out.peak > 0.05f);
+}
+
+TEST_CASE("multitimbral: per-channel CC1 dynamics and per-slot stage", "[rack]")
+{
+    OrchestraParams dry;
+    dry.tailLevel = 0.0f;
+    dry.earlyLevel = 0.0f;
+    dry.dnaMode = 0;
+    OrchestraEngine engine;
+    engine.prepare(48000, 512);
+    engine.setParams(dry);
+    engine.setInstrument(sineInstrument(300.0), 0);
+    engine.setInstrument(sineInstrument(600.0), 1);
+    engine.setSlotStage(0, -1.0f, 0.0f, 1.0f);  // violin seat: hard left
+    engine.setSlotStage(1, 1.0f, 0.0f, 1.0f);   // cello seat: hard right
+
+    // Slot 0 quiet (CC1 low on ch1), slot 1 loud (CC1 high on ch2).
+    auto out = run(engine,
+                   {ccCh(0, 1, 10, 0), ccCh(0, 1, 127, 1),
+                    onCh(10, 69, 100, 0), onCh(10, 69, 100, 1)},
+                   48000);
+
+    double energyL = 0, energyR = 0;
+    for (size_t i = 24000; i < out.left.size(); ++i) {
+        energyL += double(out.left[i]) * out.left[i];
+        energyR += double(out.right[i]) * out.right[i];
+    }
+    // Right (loud slot 1) must dominate left (quiet slot 0) by far more than
+    // the pan law alone would explain.
+    CHECK(energyR > energyL * 4.0);
 }

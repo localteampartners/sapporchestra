@@ -37,6 +37,8 @@ public:
     void drawButtonBackground(juce::Graphics&, juce::Button&,
                               const juce::Colour& backgroundColour,
                               bool highlighted, bool down) override;
+    void drawButtonText(juce::Graphics&, juce::TextButton&,
+                        bool highlighted, bool down) override;
     juce::Font getComboBoxFont(juce::ComboBox&) override;
     juce::Font getPopupMenuFont() override;
 };
@@ -122,8 +124,9 @@ private:
     SoundsPanel& ensureSoundsPanel();
     void openSoundsPanel();
 
-    juce::Label articulationsHeader_, stageHeader_, hallHeader_, toneHeader_;
+    juce::Label articulationsHeader_, stageHeader_, hallHeader_, toneHeader_, channelsHeader_;
     juce::OwnedArray<juce::TextButton> articulationChips_;
+    juce::OwnedArray<juce::TextButton> channelButtons_;   // 16 MIDI-channel slots
 
     std::unique_ptr<Knob> dynamics_, expression_, width_, dnaAmount_;
     std::unique_ptr<Knob> hallSize_, hallDecay_, hallDamping_, early_, tail_;

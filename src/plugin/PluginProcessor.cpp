@@ -97,6 +97,8 @@ SappOrchestraProcessor::SappOrchestraProcessor()
 
 void SappOrchestraProcessor::handleSappLinkCc(int ccNumber, int ccValue)
 {
+    // CC 16/17/18 (stage) are per-channel and handled inside the engine.
+    if (ccNumber == 16 || ccNumber == 17 || ccNumber == 18) return;
     const auto* mapping = sapplink::findMapping(ccNumber);
     if (mapping == nullptr)
         return;
@@ -151,6 +153,15 @@ void SappOrchestraProcessor::pushParamsToEngine()
     p.stageX = pStageX_->load();
     p.stageDepth = pStageDepth_->load();
     p.width = pWidth_->load();
+
+    // Stage params edit the SELECTED slot; write through only on change so
+    // per-channel CC16/17/18 (handled inside the engine) are not clobbered.
+    if (p.stageX != lastStageX_ || p.stageDepth != lastStageDepth_ || p.width != lastWidth_) {
+        lastStageX_ = p.stageX;
+        lastStageDepth_ = p.stageDepth;
+        lastWidth_ = p.width;
+        engine_.setSlotStage(selectedSlot_, p.stageX, p.stageDepth, p.width);
+    }
     p.earlyLevel = pEarly_->load();
     p.tailLevel = pTail_->load();
     p.hallSize = pHallSize_->load();
@@ -202,13 +213,14 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const int artParam = int(pArticulation_->load());
     if (artParam != lastArticulationParam_) {
         lastArticulationParam_ = artParam;
-        engine_.selectArticulation(artParam);
+        engine_.selectArticulation(artParam, selectedSlot_);
     }
 
     for (const auto metadata : midi) {
         const auto msg = metadata.getMessage();
         MidiEvent e;
         e.frame = uint32_t(juce::jmax(0, metadata.samplePosition));
+        e.channel = uint8_t(juce::jlimit(1, 16, msg.getChannel() > 0 ? msg.getChannel() : 1) - 1);
         if (msg.isNoteOn()) {
             e.type = MidiEvent::Type::NoteOn;
             e.note = uint8_t(msg.getNoteNumber());
@@ -253,44 +265,77 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 void SappOrchestraProcessor::loadDiagnosticInstrument()
 {
     const uint64_t generation = ++loadGeneration_;
+    const int slot = selectedSlot_;
     loading_ = true;
     {
         const juce::ScopedLock sl(loadLock_);
         loadStatus_ = "Generating diagnostic orchestra...";
     }
-    std::thread([this, generation] {
+    std::thread([this, generation, slot] {
         auto inst = sapp::sounds::makeDiagnosticInstrument();
         sapp::sounds::LoadResult result;
         result.instrument = inst;
         result.ok = true;
-        juce::MessageManager::callAsync([this, result = std::move(result), generation]() mutable {
-            finishLoad(std::move(result), {}, generation);
+        juce::MessageManager::callAsync([this, result = std::move(result), generation, slot]() mutable {
+            finishLoad(std::move(result), {}, generation, slot);
         });
     }).detach();
+}
+
+void SappOrchestraProcessor::selectSlot(int slot)
+{
+    slot = juce::jlimit(0, sapp::orchestra::OrchestraEngine::kNumSlots - 1, slot);
+    if (slot == selectedSlot_) return;
+    selectedSlot_ = slot;
+
+    // Reflect the slot's stage into the (selected-slot-scoped) APVTS params.
+    float x = 0, depth = 0, width = 1;
+    engine_.getSlotStage(slot, x, depth, width);
+    lastStageX_ = x;
+    lastStageDepth_ = depth;
+    lastWidth_ = width;
+    auto reflect = [this](const char* id, float value) {
+        if (auto* param = apvts_.getParameter(id))
+            param->setValueNotifyingHost(param->convertTo0to1(value));
+    };
+    reflect("stageX", x);
+    reflect("stageDepth", depth);
+    reflect("width", width);
+    lastArticulationParam_ = -1;  // re-apply on next block
+    if (onInstrumentChanged) onInstrumentChanged();
+}
+
+juce::String SappOrchestraProcessor::slotName(int slot) const
+{
+    if (slot < 0 || slot >= 16) return {};
+    const juce::ScopedLock sl(loadLock_);
+    return slotNames_[size_t(slot)];
 }
 
 void SappOrchestraProcessor::loadSfzInstrument(const juce::File& sfzFile)
 {
     const uint64_t generation = ++loadGeneration_;
+    const int slot = selectedSlot_;
     loading_ = true;
     {
         const juce::ScopedLock sl(loadLock_);
         loadStatus_ = "Loading " + sfzFile.getFileName() + "...";
     }
     const juce::String path = sfzFile.getFullPathName();
-    std::thread([this, path, generation] {
+    std::thread([this, path, generation, slot] {
         sapp::sounds::InstrumentLoader loader;
         auto result = loader.loadSfz(path.toStdString());
-        juce::MessageManager::callAsync([this, result = std::move(result), path, generation]() mutable {
-            finishLoad(std::move(result), path, generation);
+        juce::MessageManager::callAsync([this, result = std::move(result), path, generation, slot]() mutable {
+            finishLoad(std::move(result), path, generation, slot);
         });
     }).detach();
 }
 
 void SappOrchestraProcessor::finishLoad(sapp::sounds::LoadResult result,
-                                        const juce::String& path, uint64_t generation)
+                                        const juce::String& path, uint64_t generation,
+                                        int slot)
 {
-    if (generation != loadGeneration_.load()) return;  // superseded
+    if (generation != loadGeneration_.load()) loading_ = false;  // superseded but note it
     loading_ = false;
 
     const juce::ScopedLock sl(loadLock_);
@@ -302,10 +347,10 @@ void SappOrchestraProcessor::finishLoad(sapp::sounds::LoadResult result,
                 break;
             }
     } else {
-        engine_.setInstrument(result.instrument);
+        engine_.setInstrument(result.instrument, slot);
         engine_.collectRetired();
-        sfzPath_ = path;
-        instrumentName_ = juce::String(result.instrument->definition.name);
+        slotPaths_[size_t(slot)] = path;
+        slotNames_[size_t(slot)] = juce::String(result.instrument->definition.name);
         loadStatus_ = result.missingSamples.empty()
                           ? "Ready"
                           : juce::String(result.missingSamples.size()) + " samples missing";
@@ -317,7 +362,8 @@ void SappOrchestraProcessor::finishLoad(sapp::sounds::LoadResult result,
 juce::String SappOrchestraProcessor::currentInstrumentName() const
 {
     const juce::ScopedLock sl(loadLock_);
-    return instrumentName_;
+    const auto name = slotNames_[size_t(selectedSlot_)];
+    return name.isEmpty() ? "(empty)" : name;
 }
 
 juce::String SappOrchestraProcessor::loadStatus() const
@@ -329,7 +375,7 @@ juce::String SappOrchestraProcessor::loadStatus() const
 juce::StringArray SappOrchestraProcessor::articulationNames() const
 {
     juce::StringArray names;
-    if (auto inst = engine_.currentInstrument())
+    if (auto inst = engine_.currentInstrument(selectedSlot_))
         for (const auto& a : inst->definition.articulations)
             names.add(juce::String(a.name));
     return names;
@@ -355,8 +401,22 @@ void SappOrchestraProcessor::selectArticulation(int index)
 void SappOrchestraProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts_.copyState();
-    state.setProperty("sfzPath", sfzPath_, nullptr);
-    state.setProperty("stateVersion", 1, nullptr);
+    state.setProperty("sfzPath", slotPaths_[0], nullptr);  // legacy readers
+    state.setProperty("stateVersion", 2, nullptr);
+    state.setProperty("selectedSlot", selectedSlot_, nullptr);
+    juce::ValueTree slots("slots");
+    for (int i = 0; i < 16; ++i) {
+        float x = 0, depth = 0, width = 1;
+        engine_.getSlotStage(i, x, depth, width);
+        juce::ValueTree slot("slot");
+        slot.setProperty("index", i, nullptr);
+        slot.setProperty("path", slotPaths_[size_t(i)], nullptr);
+        slot.setProperty("stageX", x, nullptr);
+        slot.setProperty("stageDepth", depth, nullptr);
+        slot.setProperty("width", width, nullptr);
+        slots.appendChild(slot, nullptr);
+    }
+    state.appendChild(slots, nullptr);
     if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
 }
@@ -367,10 +427,34 @@ void SappOrchestraProcessor::setStateInformation(const void* data, int sizeInByt
         auto state = juce::ValueTree::fromXml(*xml);
         if (!state.isValid()) return;
         apvts_.replaceState(state);
-        const juce::String path = state.getProperty("sfzPath", "").toString();
-        if (path.isNotEmpty() && juce::File(path).existsAsFile())
-            loadSfzInstrument(juce::File(path));
-        else
+        const auto slots = state.getChildWithName("slots");
+        bool loadedAny = false;
+        if (slots.isValid()) {
+            for (int i = 0; i < slots.getNumChildren(); ++i) {
+                const auto slot = slots.getChild(i);
+                const int index = int(slot.getProperty("index", i));
+                if (index < 0 || index >= 16) continue;
+                engine_.setSlotStage(index, float(slot.getProperty("stageX", 0.0f)),
+                                     float(slot.getProperty("stageDepth", 0.35f)),
+                                     float(slot.getProperty("width", 1.0f)));
+                const juce::String path = slot.getProperty("path", "").toString();
+                if (path.isNotEmpty() && juce::File(path).existsAsFile()) {
+                    const int previous = selectedSlot_;
+                    selectedSlot_ = index;
+                    loadSfzInstrument(juce::File(path));
+                    selectedSlot_ = previous;
+                    loadedAny = true;
+                }
+            }
+            selectSlot(int(state.getProperty("selectedSlot", 0)));
+        } else {
+            const juce::String path = state.getProperty("sfzPath", "").toString();
+            if (path.isNotEmpty() && juce::File(path).existsAsFile()) {
+                loadSfzInstrument(juce::File(path));
+                loadedAny = true;
+            }
+        }
+        if (!loadedAny)
             loadDiagnosticInstrument();
     }
 }

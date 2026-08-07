@@ -27,8 +27,12 @@ and `src/core/SappLinkCCMap.cpp` together.
 | 92 | `hallSize` | 0.2 … 1.5 | linear |
 
 CC 0→127 maps onto the range through the curve (log = exponential
-interpolation between endpoints; linear = lerp). CCs are accepted on any
-MIDI channel.
+interpolation between endpoints; linear = lerp).
+
+**Channel scope (multitimbral):** CC 1/11 (dynamics/expression) and
+CC 16/17/18 (stage position/depth/width) are PER-CHANNEL — they shape only
+the instrument slot on that MIDI channel. The remaining mapped CCs (master,
+room, DNA, legato) are global and accepted on any channel.
 
 ## Deliberately NOT in the mapping (existing behavior preserved)
 

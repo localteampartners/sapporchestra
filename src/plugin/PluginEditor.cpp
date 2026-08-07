@@ -123,6 +123,25 @@ void OrchestraLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button&
     g.drawRoundedRectangle(bounds, 5.0f, 1.0f);
 }
 
+void OrchestraLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                                          bool highlighted, bool down)
+{
+    // Tiny buttons (channel strip, arrows) get edge-to-edge centred text;
+    // everything else keeps the stock indented layout.
+    if (button.getWidth() <= 26 * 2 && button.getHeight() <= 26 * 2 &&
+        button.getButtonText().length() <= 2) {
+        g.setFont(uiFont(juce::jmin(12.0f, float(button.getHeight()) * 0.55f)));
+        g.setColour(button.findColour(button.getToggleState()
+                                          ? juce::TextButton::textColourOnId
+                                          : juce::TextButton::textColourOffId)
+                        .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
+        g.drawText(button.getButtonText(), button.getLocalBounds(),
+                   juce::Justification::centred, false);
+        return;
+    }
+    juce::LookAndFeel_V4::drawButtonText(g, button, highlighted, down);
+}
+
 juce::Font OrchestraLookAndFeel::getComboBoxFont(juce::ComboBox&) { return uiFont(13.0f); }
 juce::Font OrchestraLookAndFeel::getPopupMenuFont() { return uiFont(13.5f); }
 
@@ -352,6 +371,17 @@ SappOrchestraEditor::SappOrchestraEditor(SappOrchestraProcessor& processor)
         label.setColour(juce::Label::textColourId, palette::dim);
         addAndMakeVisible(label);
     };
+    header(channelsHeader_, "MIDI CHANNELS");
+    for (int i = 0; i < 16; ++i) {
+        auto* b = channelButtons_.add(new juce::TextButton(juce::String(i + 1)));
+        b->setClickingTogglesState(false);
+        b->onClick = [this, i] {
+            processor_.selectSlot(i);
+            keyboard_->setMidiChannel(i + 1);
+            rebuildArticulationChips();
+        };
+        addAndMakeVisible(b);
+    }
     header(articulationsHeader_, "ARTICULATIONS");
     header(stageHeader_, "STAGE");
     header(hallHeader_, "HALL");
@@ -476,7 +506,15 @@ void SappOrchestraEditor::mouseDown(const juce::MouseEvent& e)
 void SappOrchestraEditor::timerCallback()
 {
     status_.setText(processor_.loadStatus(), juce::dontSendNotification);
-    instrumentName_.setText(processor_.currentInstrumentName(), juce::dontSendNotification);
+    instrumentName_.setText(juce::String(processor_.selectedSlot() + 1) + ": " +
+                                processor_.currentInstrumentName(),
+                            juce::dontSendNotification);
+    for (int i = 0; i < channelButtons_.size(); ++i) {
+        const bool selected = processor_.selectedSlot() == i;
+        const bool occupied = processor_.slotOccupied(i);
+        channelButtons_[i]->setToggleState(selected, juce::dontSendNotification);
+        channelButtons_[i]->setAlpha(occupied || selected ? 1.0f : 0.45f);
+    }
 
     sapp::sounds::DiagnosticSnapshot snap;
     if (processor_.engine().sampler().diagnostics().read(snap)) {
@@ -551,19 +589,24 @@ void SappOrchestraEditor::resized()
 
     title_.setBounds(s(18), s(10), s(260), s(34));
     subtitle_.setBounds(s(21), s(42), s(260), s(16));
-    soundsButton_.setBounds(s(290), s(20), s(104), s(28));
-    loadButton_.setBounds(s(400), s(20), s(88), s(28));
-    diagButton_.setBounds(s(494), s(20), s(80), s(28));
+    soundsButton_.setBounds(s(288), s(20), s(96), s(28));
+    loadButton_.setBounds(s(390), s(20), s(76), s(28));
+    diagButton_.setBounds(s(472), s(20), s(72), s(28));
     if (soundsPanel_ != nullptr)
         soundsPanel_->setBounds(getLocalBounds().reduced(14));
-    prevButton_.setBounds(getWidth() - s(410), s(14), s(24), s(24));
-    nextButton_.setBounds(getWidth() - s(382), s(14), s(24), s(24));
-    instrumentName_.setBounds(getWidth() - s(352), s(12), s(336), s(24));
-    status_.setBounds(getWidth() - s(352), s(36), s(336), s(18));
+    prevButton_.setBounds(getWidth() - s(366), s(14), s(24), s(24));
+    nextButton_.setBounds(getWidth() - s(338), s(14), s(24), s(24));
+    instrumentName_.setBounds(getWidth() - s(308), s(12), s(292), s(24));
+    status_.setBounds(getWidth() - s(308), s(36), s(292), s(18));
 
-    // Articulation panel.
-    articulationsHeader_.setBounds(s(26), s(82), s(170), s(16));
-    int chipY = s(104);
+    // Channels + articulations panel.
+    channelsHeader_.setBounds(s(26), s(82), s(170), s(14));
+    for (int i = 0; i < channelButtons_.size(); ++i) {
+        const int col = i % 8, row = i / 8;
+        channelButtons_[i]->setBounds(s(24) + col * s(23), s(98) + row * s(23), s(22), s(21));
+    }
+    articulationsHeader_.setBounds(s(26), s(148), s(170), s(16));
+    int chipY = s(168);
     for (auto* chip : articulationChips_) {
         chip->setBounds(s(26), chipY, s(172), s(30));
         chipY += s(36);

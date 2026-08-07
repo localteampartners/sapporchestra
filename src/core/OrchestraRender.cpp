@@ -23,6 +23,8 @@ OrchestraRenderOutput renderOrchestra(const sapp::sounds::InstrumentPtr& instrum
     engine.prepare(options.sampleRate, options.blockFrames);
     engine.reseed(options.seed);
     engine.setParams(options.params);
+    engine.setSlotStage(0, options.params.stageX, options.params.stageDepth,
+                        options.params.width);
     engine.setInstrument(instrument);
     if (articulationIndex >= 0) engine.selectArticulation(articulationIndex);
 
@@ -71,8 +73,11 @@ OrchestraRenderOutput renderOrchestra(const sapp::sounds::InstrumentPtr& instrum
             block.push_back(m);
             ++next;
         }
-        if (paramsChanged)
+        if (paramsChanged) {
             engine.setParams(liveParams);
+            engine.setSlotStage(0, liveParams.stageX, liveParams.stageDepth,
+                                liveParams.width);
+        }
         engine.process(block.data(), int(block.size()),
                        out.left.data() + frame, out.right.data() + frame, frames);
     }

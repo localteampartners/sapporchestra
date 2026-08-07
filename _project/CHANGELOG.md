@@ -3,6 +3,12 @@
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
 ## 2026-08-06 — v0.4.0 (unreleased)
+- MULTITIMBRAL: 16 MIDI-channel slots in one instance — track 1/ch 1 →
+  violin, track 2/ch 2 → cello, etc. Each slot: own instrument, stage seat,
+  early reflections, per-channel CC1/CC11 phrasing and CC16/17/18 stage;
+  all slots share one hall + master. Omni fallback while only one slot is
+  loaded. Channel strip UI; loads/articulations/stage pad target the
+  selected slot; state schema v2 (per-slot paths + stages, v1 migrates).
 - Instruments browser: the GET SOUNDS panel is now the full instrument
   chooser — configurable samples folder (persisted in the shared
   Sapp/SampleLibraries settings so every Sapp instrument uses the same

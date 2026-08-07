@@ -144,6 +144,15 @@ harp piano choir solo`), each with `stage_x`/`stage_depth`. Use with
 `render --seat cello`, or set the params/CCs directly. Explicit `--param`
 after `--seat` overrides it.
 
+## Multitimbral MIDI (plugin)
+
+One SappOrchestra instance hosts 16 instrument slots, one per MIDI channel:
+send channel 1 to the violin slot, channel 2 to the cello slot, and so on.
+Per-channel CC1/CC11 phrase each part independently; CC16/17/18 seat each
+part on the stage. While only one slot is loaded the plugin is omni. The
+CLI renders one instrument per invocation — render stems per channel and
+mix, or drive the plugin with a multichannel .mid.
+
 ## Multi-instrument arrangements
 
 Render one stem per instrument/section (different `--sfz`, `stage_x`,
