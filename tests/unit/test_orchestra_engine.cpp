@@ -312,3 +312,57 @@ TEST_CASE("multitimbral: per-channel CC1 dynamics and per-slot stage", "[rack]")
     // the pan law alone would explain.
     CHECK(energyR > energyL * 4.0);
 }
+
+TEST_CASE("multitimbral: per-slot mute and solo", "[rack]")
+{
+    OrchestraParams dry;
+    dry.tailLevel = 0.0f;
+    dry.earlyLevel = 0.0f;
+    dry.dnaMode = 0;
+
+    auto build = [&](OrchestraEngine& engine) {
+        engine.prepare(48000, 512);
+        engine.setParams(dry);
+        engine.setInstrument(sineInstrument(300.0), 0);
+        engine.setInstrument(sineInstrument(600.0), 1);
+    };
+    auto rmsOf = [](const Rendered& out, size_t a, size_t b) {
+        double sum = 0.0;
+        for (size_t i = a; i < b && i < out.left.size(); ++i)
+            sum += double(out.left[i]) * out.left[i] + double(out.right[i]) * out.right[i];
+        return std::sqrt(sum / double(2 * (b - a)));
+    };
+    const std::vector<MidiEvent> both{onCh(0, 69, 100, 0), onCh(0, 69, 100, 1)};
+
+    // Baseline: both slots sound.
+    OrchestraEngine a;
+    build(a);
+    const double baseline = rmsOf(run(a, both, 24000), 8000, 24000);
+
+    // Mute slot 1: quieter, and only 300 Hz remains.
+    OrchestraEngine b;
+    build(b);
+    b.setSlotMix(1, 0.0f, true, false);
+    auto muted = run(b, both, 24000);
+    CHECK(rmsOf(muted, 8000, 24000) < baseline * 0.8);
+    CHECK(dominantFreq(muted.left, 8000, 22000) == Approx(300.0).margin(20.0));
+
+    // Solo slot 1: only 600 Hz remains.
+    OrchestraEngine c2;
+    build(c2);
+    c2.setSlotMix(1, 0.0f, false, true);
+    auto soloed = run(c2, both, 24000);
+    CHECK(dominantFreq(soloed.left, 8000, 22000) == Approx(600.0).margin(30.0));
+
+    // Volume: slot 1 at -24 dB is much quieter than at 0 dB.
+    OrchestraEngine d;
+    build(d);
+    d.setSlotMix(0, 0.0f, true, false);   // isolate slot 1
+    const double loud = rmsOf(run(d, both, 24000), 8000, 24000);
+    OrchestraEngine e;
+    build(e);
+    e.setSlotMix(0, 0.0f, true, false);
+    e.setSlotMix(1, -24.0f, false, false);
+    const double quiet = rmsOf(run(e, both, 24000), 8000, 24000);
+    CHECK(loud > quiet * 8.0);
+}

@@ -305,6 +305,16 @@ void SappOrchestraProcessor::selectSlot(int slot)
     if (onInstrumentChanged) onInstrumentChanged();
 }
 
+void SappOrchestraProcessor::setSlotMix(int slot, float gainDb, bool mute, bool solo)
+{
+    engine_.setSlotMix(slot, gainDb, mute, solo);
+}
+
+void SappOrchestraProcessor::getSlotMix(int slot, float& gainDb, bool& mute, bool& solo) const
+{
+    const_cast<sapp::orchestra::OrchestraEngine&>(engine_).getSlotMix(slot, gainDb, mute, solo);
+}
+
 juce::String SappOrchestraProcessor::slotName(int slot) const
 {
     if (slot < 0 || slot >= 16) return {};
@@ -414,6 +424,12 @@ void SappOrchestraProcessor::getStateInformation(juce::MemoryBlock& destData)
         slot.setProperty("stageX", x, nullptr);
         slot.setProperty("stageDepth", depth, nullptr);
         slot.setProperty("width", width, nullptr);
+        float gainDb = 0;
+        bool mute = false, solo = false;
+        engine_.getSlotMix(i, gainDb, mute, solo);
+        slot.setProperty("gainDb", gainDb, nullptr);
+        slot.setProperty("mute", mute, nullptr);
+        slot.setProperty("solo", solo, nullptr);
         slots.appendChild(slot, nullptr);
     }
     state.appendChild(slots, nullptr);
@@ -437,6 +453,9 @@ void SappOrchestraProcessor::setStateInformation(const void* data, int sizeInByt
                 engine_.setSlotStage(index, float(slot.getProperty("stageX", 0.0f)),
                                      float(slot.getProperty("stageDepth", 0.35f)),
                                      float(slot.getProperty("width", 1.0f)));
+                engine_.setSlotMix(index, float(slot.getProperty("gainDb", 0.0f)),
+                                   bool(slot.getProperty("mute", false)),
+                                   bool(slot.getProperty("solo", false)));
                 const juce::String path = slot.getProperty("path", "").toString();
                 if (path.isNotEmpty() && juce::File(path).existsAsFile()) {
                     const int previous = selectedSlot_;

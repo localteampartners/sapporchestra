@@ -65,6 +65,8 @@ public:
     void selectSlot(int slot);
     bool slotOccupied(int slot) const { return engine_.slotOccupied(slot); }
     juce::String slotName(int slot) const;
+    void setSlotMix(int slot, float gainDb, bool mute, bool solo);
+    void getSlotMix(int slot, float& gainDb, bool& mute, bool& solo) const;
 
     // Articulations of the loaded instrument (message/UI thread).
     juce::StringArray articulationNames() const;

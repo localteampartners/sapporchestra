@@ -83,6 +83,11 @@ public:
     void setSlotStage(int slot, float x, float depth, float width);
     void getSlotStage(int slot, float& x, float& depth, float& width) const;
 
+    // Per-slot mixer. Solo on any slot silences all non-soloed slots.
+    // Thread-safe; changes are smoothed on the audio thread.
+    void setSlotMix(int slot, float gainDb, bool mute, bool solo);
+    void getSlotMix(int slot, float& gainDb, bool& mute, bool& solo) const;
+
     void setParams(const OrchestraParams& params);      // shared/room params
     OrchestraParams params() const;
 
@@ -100,7 +105,7 @@ public:
 private:
     struct Slot;
     void applyShared(const OrchestraParams& p) noexcept;
-    void processSlot(Slot& s, const OrchestraParams& p,
+    void processSlot(Slot& s, const OrchestraParams& p, bool anySolo,
                      const sapp::sounds::MidiEvent* events, int eventCount,
                      float* outL, float* outR, int frames) noexcept;
 

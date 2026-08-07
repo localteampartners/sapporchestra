@@ -43,6 +43,9 @@ OrchestraLookAndFeel::OrchestraLookAndFeel()
     setColour(juce::ToggleButton::textColourId, palette::dim);
     setColour(juce::ToggleButton::tickColourId, palette::gold);
     setColour(juce::ToggleButton::tickDisabledColourId, palette::panelEdge);
+    setColour(juce::Slider::thumbColourId, palette::gold);
+    setColour(juce::Slider::trackColourId, palette::panelEdge.brighter(0.15f));
+    setColour(juce::Slider::backgroundColourId, palette::shadow);
 }
 
 void OrchestraLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h,
@@ -378,10 +381,37 @@ SappOrchestraEditor::SappOrchestraEditor(SappOrchestraProcessor& processor)
         b->onClick = [this, i] {
             processor_.selectSlot(i);
             keyboard_->setMidiChannel(i + 1);
+            refreshMixControls();
             rebuildArticulationChips();
         };
         addAndMakeVisible(b);
     }
+    header(mixHeader_, "MIX");
+    slotVolume_.setSliderStyle(juce::Slider::LinearHorizontal);
+    slotVolume_.setRange(-60.0, 12.0, 0.1);
+    slotVolume_.setValue(0.0, juce::dontSendNotification);
+    slotVolume_.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    slotVolume_.setPopupDisplayEnabled(true, true, nullptr);
+    slotVolume_.onValueChange = [this] {
+        float g; bool m, so;
+        processor_.getSlotMix(processor_.selectedSlot(), g, m, so);
+        processor_.setSlotMix(processor_.selectedSlot(), float(slotVolume_.getValue()), m, so);
+    };
+    addAndMakeVisible(slotVolume_);
+    muteButton_.setClickingTogglesState(true);
+    muteButton_.onClick = [this] {
+        float g; bool m, so;
+        processor_.getSlotMix(processor_.selectedSlot(), g, m, so);
+        processor_.setSlotMix(processor_.selectedSlot(), g, muteButton_.getToggleState(), so);
+    };
+    addAndMakeVisible(muteButton_);
+    soloButton_.setClickingTogglesState(true);
+    soloButton_.onClick = [this] {
+        float g; bool m, so;
+        processor_.getSlotMix(processor_.selectedSlot(), g, m, so);
+        processor_.setSlotMix(processor_.selectedSlot(), g, m, soloButton_.getToggleState());
+    };
+    addAndMakeVisible(soloButton_);
     header(articulationsHeader_, "ARTICULATIONS");
     header(stageHeader_, "STAGE");
     header(hallHeader_, "HALL");
@@ -475,6 +505,16 @@ void SappOrchestraEditor::chooseSfz()
                               });
 }
 
+void SappOrchestraEditor::refreshMixControls()
+{
+    float gainDb = 0;
+    bool mute = false, solo = false;
+    processor_.getSlotMix(processor_.selectedSlot(), gainDb, mute, solo);
+    slotVolume_.setValue(gainDb, juce::dontSendNotification);
+    muteButton_.setToggleState(mute, juce::dontSendNotification);
+    soloButton_.setToggleState(solo, juce::dontSendNotification);
+}
+
 void SappOrchestraEditor::rebuildArticulationChips()
 {
     articulationChips_.clear();
@@ -514,6 +554,11 @@ void SappOrchestraEditor::timerCallback()
         const bool occupied = processor_.slotOccupied(i);
         channelButtons_[i]->setToggleState(selected, juce::dontSendNotification);
         channelButtons_[i]->setAlpha(occupied || selected ? 1.0f : 0.45f);
+        float g; bool m, so;
+        processor_.getSlotMix(i, g, m, so);
+        channelButtons_[i]->setColour(juce::TextButton::textColourOffId,
+                                      m ? palette::burgundy.brighter(0.6f)
+                                        : so ? palette::gold : palette::ivory);
     }
 
     sapp::sounds::DiagnosticSnapshot snap;
@@ -605,11 +650,15 @@ void SappOrchestraEditor::resized()
         const int col = i % 8, row = i / 8;
         channelButtons_[i]->setBounds(s(24) + col * s(23), s(98) + row * s(23), s(22), s(21));
     }
-    articulationsHeader_.setBounds(s(26), s(148), s(170), s(16));
-    int chipY = s(168);
+    mixHeader_.setBounds(s(26), s(146), s(40), s(14));
+    slotVolume_.setBounds(s(58), s(142), s(86), s(22));
+    muteButton_.setBounds(s(148), s(143), s(22), s(20));
+    soloButton_.setBounds(s(174), s(143), s(22), s(20));
+    articulationsHeader_.setBounds(s(26), s(172), s(170), s(14));
+    int chipY = s(190);
     for (auto* chip : articulationChips_) {
-        chip->setBounds(s(26), chipY, s(172), s(30));
-        chipY += s(36);
+        chip->setBounds(s(26), chipY, s(172), s(26));
+        chipY += s(30);
     }
 
     // Performance panel.

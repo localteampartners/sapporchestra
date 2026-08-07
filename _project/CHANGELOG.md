@@ -2,7 +2,10 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
-## 2026-08-06 — v0.4.0 (unreleased)
+## 2026-08-06 — v0.4.0
+- Per-slot mixer: volume (−60…+12 dB), mute, and solo per MIDI-channel slot
+  (MIX strip under the channel grid; solo silences all non-soloed slots;
+  states persist in the session and color the channel numbers)
 - MULTITIMBRAL: 16 MIDI-channel slots in one instance — track 1/ch 1 →
   violin, track 2/ch 2 → cello, etc. Each slot: own instrument, stage seat,
   early reflections, per-channel CC1/CC11 phrasing and CC16/17/18 stage;

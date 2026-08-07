@@ -127,6 +127,10 @@ private:
     juce::Label articulationsHeader_, stageHeader_, hallHeader_, toneHeader_, channelsHeader_;
     juce::OwnedArray<juce::TextButton> articulationChips_;
     juce::OwnedArray<juce::TextButton> channelButtons_;   // 16 MIDI-channel slots
+    juce::Slider slotVolume_;
+    juce::TextButton muteButton_{"M"}, soloButton_{"S"};
+    juce::Label mixHeader_;
+    void refreshMixControls();
 
     std::unique_ptr<Knob> dynamics_, expression_, width_, dnaAmount_;
     std::unique_ptr<Knob> hallSize_, hallDecay_, hallDamping_, early_, tail_;

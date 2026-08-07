@@ -32,6 +32,11 @@ struct OrchestraEngine::Slot {
     // Stage placement targets (control thread / CC writes; audio reads).
     std::atomic<float> stageX{0.0f}, stageDepth{0.35f}, width{1.0f};
 
+    // Mixer (control writes; audio reads and smooths).
+    std::atomic<float> gainDb{0.0f};
+    std::atomic<bool> mute{false}, solo{false};
+    float smMix = 1.0f;
+
     // Live per-channel controller state (audio thread).
     float liveDynamics = -1.0f, liveExpression = -1.0f;
 
@@ -148,6 +153,24 @@ void OrchestraEngine::getSlotStage(int slot, float& x, float& depth, float& widt
     width = s.width.load(std::memory_order_relaxed);
 }
 
+void OrchestraEngine::setSlotMix(int slot, float gainDb, bool mute, bool solo)
+{
+    if (slot < 0 || slot >= kNumSlots) return;
+    auto& s = *slots_[size_t(slot)];
+    s.gainDb.store(std::clamp(gainDb, -60.0f, 12.0f), std::memory_order_relaxed);
+    s.mute.store(mute, std::memory_order_relaxed);
+    s.solo.store(solo, std::memory_order_relaxed);
+}
+
+void OrchestraEngine::getSlotMix(int slot, float& gainDb, bool& mute, bool& solo) const
+{
+    if (slot < 0 || slot >= kNumSlots) { gainDb = 0; mute = solo = false; return; }
+    const auto& s = *slots_[size_t(slot)];
+    gainDb = s.gainDb.load(std::memory_order_relaxed);
+    mute = s.mute.load(std::memory_order_relaxed);
+    solo = s.solo.load(std::memory_order_relaxed);
+}
+
 void OrchestraEngine::setParams(const OrchestraParams& params)
 {
     const int inactive = 1 - paramIndex_.load(std::memory_order_acquire);
@@ -210,7 +233,7 @@ void OrchestraEngine::applyShared(const OrchestraParams& p) noexcept
 
 // Render one slot's sampler through its policy chain, accumulating into the
 // direct bus (outL/outR), the ER accumulator, and the shared hall send.
-void OrchestraEngine::processSlot(Slot& s, const OrchestraParams& p,
+void OrchestraEngine::processSlot(Slot& s, const OrchestraParams& p, bool anySolo,
                                   const MidiEvent* events, int eventCount,
                                   float* outL, float* outR, int frames) noexcept
 {
@@ -291,6 +314,13 @@ void OrchestraEngine::processSlot(Slot& s, const OrchestraParams& p,
     const float erGain = p.earlyLevel * (0.4f + 0.9f * depth);
     const float tailSendGain = 0.55f + 0.75f * depth;
 
+    // Mixer: mute, and solo-elsewhere, silence this slot (smoothed).
+    const bool audible = !s.mute.load(std::memory_order_relaxed) &&
+                         (!anySolo || s.solo.load(std::memory_order_relaxed));
+    const float mixTarget = audible
+                                ? dbToGain(s.gainDb.load(std::memory_order_relaxed))
+                                : 0.0f;
+
     for (int f = 0; f < n; ++f) {
         s.smDynGain += smFast * (dynGainTarget - s.smDynGain);
         s.smExprGain += smFast * (exprGainTarget - s.smExprGain);
@@ -312,10 +342,11 @@ void OrchestraEngine::processSlot(Slot& s, const OrchestraParams& p,
         l = s.lpL;
         r = s.lpR;
 
+        s.smMix += smFast * (mixTarget - s.smMix);
         s.depthLpL += depthCoef * (l - s.depthLpL);
         s.depthLpR += depthCoef * (r - s.depthLpR);
-        l = s.depthLpL * s.smDynGain * s.smExprGain;
-        r = s.depthLpR * s.smDynGain * s.smExprGain;
+        l = s.depthLpL * s.smDynGain * s.smExprGain * s.smMix;
+        r = s.depthLpR * s.smDynGain * s.smExprGain * s.smMix;
 
         const float pl = l * s.smPanL;
         const float pr = r * s.smPanR;
@@ -369,9 +400,13 @@ void OrchestraEngine::process(const MidiEvent* events, int eventCount,
             s.events[slotCounts[slot]++] = events[i];
     }
 
+    bool anySolo = false;
+    for (const auto& slot : slots_)
+        if (slot->solo.load(std::memory_order_relaxed)) anySolo = true;
+
     for (int i = 0; i < kNumSlots; ++i)
-        processSlot(*slots_[size_t(i)], p, slots_[size_t(i)]->events, slotCounts[i],
-                    outL, outR, n);
+        processSlot(*slots_[size_t(i)], p, anySolo, slots_[size_t(i)]->events,
+                    slotCounts[i], outL, outR, n);
 
     hall_.process(sendL_.data(), sendR_.data(), tailL_.data(), tailR_.data(), n);
 
