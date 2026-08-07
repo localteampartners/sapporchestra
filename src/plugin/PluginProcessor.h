@@ -68,11 +68,14 @@ public:
     void setSlotMix(int slot, float gainDb, bool mute, bool solo);
     void getSlotMix(int slot, float& gainDb, bool& mute, bool& solo) const;
 
-    // Factory preset: full Sonatina orchestra across all 16 channels,
-    // seated on the stage. Loads sequentially in the background.
-    // Returns false when Sonatina is not found in the samples folder.
-    bool loadOrchestraPreset();
-    bool orchestraPresetAvailable() const;
+    // Factory presets: a full orchestra across all 16 channels, seated on
+    // the stage, loading sequentially in the background. Preset 0 = Sonatina,
+    // 1 = Virtual Playing Orchestra. Returns false when the library is not
+    // found in the samples folder.
+    bool loadOrchestraPreset(int preset = 0);
+    bool orchestraPresetAvailable(int preset = 0) const;
+    int orchestraPresetCount() const;
+    juce::String orchestraPresetName(int preset) const;
 
     // Articulations of the loaded instrument (message/UI thread).
     juce::StringArray articulationNames() const;
@@ -89,7 +92,8 @@ private:
     void finishLoad(sapp::sounds::LoadResult result, const juce::String& path,
                     uint64_t generation, int slot);
     void loadOrchestraPresetStep(size_t step, uint64_t generation);
-    juce::File findSonatinaRoot() const;
+    juce::File findPresetRoot(int preset) const;
+    int activePreset_ = 0;
 
     juce::AudioProcessorValueTreeState apvts_;
     sapp::orchestra::OrchestraEngine engine_;

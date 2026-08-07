@@ -2,6 +2,12 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-07 — v0.5.1
+- FULL ORCHESTRA - VPO: second factory preset loads the complete Virtual
+  Playing Orchestra across all 16 channels (same classic seating); brass
+  slots use the DXF patches, so CC1 morphs real recorded dynamic layers.
+  The Instruments panel now shows one FULL ORCHESTRA button per library.
+
 ## 2026-08-06 — v0.5.0
 - FULL ORCHESTRA preset: one click in the Instruments panel loads the
   complete Sonatina orchestra across all 16 MIDI channels — strings I/II/

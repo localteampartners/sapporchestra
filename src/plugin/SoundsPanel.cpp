@@ -195,15 +195,20 @@ SoundsPanel::SoundsPanel(SappOrchestraProcessor& processor, std::function<void()
         addAndMakeVisible(button);
     }
 
-    orchestraButton_.onClick = [this] {
-        if (processor_.loadOrchestraPreset()) {
-            if (onClose_) onClose_();
-        } else {
-            statusLabel_.setText("Sonatina not found - download it above first.",
-                                 juce::dontSendNotification);
-        }
-    };
-    addAndMakeVisible(orchestraButton_);
+    for (int p = 0; p < processor_.orchestraPresetCount(); ++p) {
+        auto* b = orchestraButtons_.add(new juce::TextButton(
+            "FULL ORCHESTRA - " + processor_.orchestraPresetName(p)));
+        b->onClick = [this, p] {
+            if (processor_.loadOrchestraPreset(p)) {
+                if (onClose_) onClose_();
+            } else {
+                statusLabel_.setText(processor_.orchestraPresetName(p) +
+                                         " not found - download it above first.",
+                                     juce::dontSendNotification);
+            }
+        };
+        addAndMakeVisible(b);
+    }
 
     installedHeader_.setText("YOUR INSTRUMENTS - double-click to load",
                              juce::dontSendNotification);
@@ -386,7 +391,9 @@ void SoundsPanel::timerCallback()
     installedHeader_.setText("YOUR INSTRUMENTS - double-click to load into channel " +
                                  juce::String(processor_.selectedSlot() + 1),
                              juce::dontSendNotification);
-    orchestraButton_.setEnabled(processor_.orchestraPresetAvailable() && job_ == nullptr);
+    for (int p = 0; p < orchestraButtons_.size(); ++p)
+        orchestraButtons_[p]->setEnabled(processor_.orchestraPresetAvailable(p) &&
+                                         job_ == nullptr);
 
     for (int i = 0; i < downloadButtons_.size(); ++i) {
         const auto& def = soundsRegistry()[size_t(i)];
@@ -438,7 +445,10 @@ void SoundsPanel::resized()
         downloadButtons_[i]->setBounds(w / 2 - 128, y + 5, 104, 30);
         y += 52;
     }
-    orchestraButton_.setBounds(24, getHeight() - 108, w / 2 - 152, 34);
+    for (int p = 0; p < orchestraButtons_.size(); ++p)
+        orchestraButtons_[p]->setBounds(24 + p * ((w / 2 - 140) / 2 + 6),
+                                        getHeight() - 104,
+                                        (w / 2 - 140) / 2, 32);
     statusLabel_.setBounds(24, getHeight() - 62, w / 2 - 48, 22);
 
     installedHeader_.setBounds(w / 2 + 12, 84, w / 2 - 200, 16);

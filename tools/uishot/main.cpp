@@ -76,8 +76,11 @@ public:
 
         const bool showSounds = commandLine.contains("--sounds");
         const bool orchestra = commandLine.contains("--orchestra");
-        juce::String pathArg =
-            commandLine.replace("--sounds", "").replace("--orchestra", "").trim().unquoted();
+        const int presetIndex = commandLine.contains("--orchestra2") ? 1 : 0;
+        juce::String pathArg = commandLine.replace("--sounds", "")
+                                   .replace("--orchestra2", "")
+                                   .replace("--orchestra", "")
+                                   .trim().unquoted();
         const juce::String outPath = pathArg.isNotEmpty()
             ? pathArg : juce::String("/tmp/sapporchestra-ui.png");
 
@@ -86,8 +89,8 @@ public:
         editor.reset(processor->createEditor());
 
         if (orchestra) {
-            juce::Timer::callAfterDelay(2500, [this, outPath] {
-                processor->loadOrchestraPreset();
+            juce::Timer::callAfterDelay(2500, [this, outPath, presetIndex] {
+                processor->loadOrchestraPreset(presetIndex);
                 waitForOrchestra(outPath, 0);
             });
             return;

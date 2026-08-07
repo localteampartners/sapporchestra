@@ -320,50 +320,82 @@ void SappOrchestraProcessor::getSlotMix(int slot, float& gainDb, bool& mute, boo
 
 namespace {
 struct PresetSlot {
-    const char* fileName;   // located by name anywhere under the Sonatina root
+    const char* fileName;   // located by name anywhere under the library root
     float x, depth, gainDb;
 };
-// Classic seating, audience view (negative x = left).
-const PresetSlot kOrchestraPreset[16] = {
-    {"1st Violins KS.sfz", -0.65f, 0.25f, 0.0f},
-    {"2nd Violins KS.sfz", -0.30f, 0.30f, 0.0f},
-    {"Violas KS.sfz", 0.25f, 0.30f, 0.0f},
-    {"Celli KS.sfz", 0.55f, 0.35f, 0.0f},
-    {"Basses KS.sfz", 0.75f, 0.50f, 0.0f},
-    {"Flutes KS.sfz", -0.10f, 0.50f, -2.0f},
-    {"Oboes KS.sfz", 0.15f, 0.50f, -2.0f},
-    {"Clarinets KS.sfz", 0.15f, 0.60f, -2.0f},
-    {"Bassoons KS.sfz", -0.10f, 0.60f, -2.0f},
-    {"Horns KS.sfz", -0.45f, 0.65f, -1.0f},
-    {"Trumpets KS.sfz", 0.30f, 0.70f, -3.0f},
-    {"Trombones KS.sfz", 0.45f, 0.70f, -3.0f},
-    {"Tuba KS.sfz", 0.60f, 0.72f, -3.0f},
-    {"Timpani.sfz", 0.10f, 0.85f, -2.0f},
-    {"Concert Harp.sfz", -0.70f, 0.60f, -2.0f},
-    {"Mixed Chorus.sfz", 0.00f, 0.90f, -4.0f},
+struct OrchestraPresetDef {
+    const char* name;        // shown on the panel button
+    const char* rootDir;     // library folder name searched under samplesRoot
+    PresetSlot slots[16];
 };
+// Classic seating, audience view (negative x = left). Same seats for both
+// libraries; brass DXF patches in VPO give real CC1 dynamic morphing.
+const OrchestraPresetDef kOrchestraPresets[] = {
+    {"SONATINA", "Sonatina Symphonic Orchestra",
+     {{"1st Violins KS.sfz", -0.65f, 0.25f, 0.0f},
+      {"2nd Violins KS.sfz", -0.30f, 0.30f, 0.0f},
+      {"Violas KS.sfz", 0.25f, 0.30f, 0.0f},
+      {"Celli KS.sfz", 0.55f, 0.35f, 0.0f},
+      {"Basses KS.sfz", 0.75f, 0.50f, 0.0f},
+      {"Flutes KS.sfz", -0.10f, 0.50f, -2.0f},
+      {"Oboes KS.sfz", 0.15f, 0.50f, -2.0f},
+      {"Clarinets KS.sfz", 0.15f, 0.60f, -2.0f},
+      {"Bassoons KS.sfz", -0.10f, 0.60f, -2.0f},
+      {"Horns KS.sfz", -0.45f, 0.65f, -1.0f},
+      {"Trumpets KS.sfz", 0.30f, 0.70f, -3.0f},
+      {"Trombones KS.sfz", 0.45f, 0.70f, -3.0f},
+      {"Tuba KS.sfz", 0.60f, 0.72f, -3.0f},
+      {"Timpani.sfz", 0.10f, 0.85f, -2.0f},
+      {"Concert Harp.sfz", -0.70f, 0.60f, -2.0f},
+      {"Mixed Chorus.sfz", 0.00f, 0.90f, -4.0f}}},
+    {"VPO", "Virtual-Playing-Orchestra3",
+     {{"1st-violin-SEC-KS-C2.sfz", -0.65f, 0.25f, 0.0f},
+      {"2nd-violin-SEC-KS-C2.sfz", -0.30f, 0.30f, 0.0f},
+      {"viola-SEC-KS-C2.sfz", 0.25f, 0.30f, 0.0f},
+      {"cello-SEC-KS-C6.sfz", 0.55f, 0.35f, 0.0f},
+      {"bass-SEC-KS-C6.sfz", 0.75f, 0.50f, 0.0f},
+      {"flute-SEC-KS-C2.sfz", -0.10f, 0.50f, -2.0f},
+      {"oboe-SEC-KS-C2.sfz", 0.15f, 0.50f, -2.0f},
+      {"clarinet-SEC-KS-C2.sfz", 0.15f, 0.60f, -2.0f},
+      {"bassoon-SEC-KS-C6.sfz", -0.10f, 0.60f, -2.0f},
+      {"french-horn-SEC-KS-C6-DXF.sfz", -0.45f, 0.65f, -1.0f},
+      {"trumpet-SEC-KS-C2-DXF.sfz", 0.30f, 0.70f, -3.0f},
+      {"trombone-SEC-KS-C6-DXF.sfz", 0.45f, 0.70f, -3.0f},
+      {"tuba-SOLO-KS-C6.sfz", 0.60f, 0.72f, -3.0f},
+      {"timpani-KS-C6.sfz", 0.10f, 0.85f, -2.0f},
+      {"harp-KS-C0.sfz", -0.70f, 0.60f, -2.0f},
+      {"choir-MIXED-normal-mod-wheel.sfz", 0.00f, 0.90f, -4.0f}}},
+};
+constexpr int kNumOrchestraPresets = 2;
 } // namespace
 
-juce::File SappOrchestraProcessor::findSonatinaRoot() const
+int SappOrchestraProcessor::orchestraPresetCount() const { return kNumOrchestraPresets; }
+
+juce::String SappOrchestraProcessor::orchestraPresetName(int preset) const
 {
+    if (preset < 0 || preset >= kNumOrchestraPresets) return {};
+    return kOrchestraPresets[preset].name;
+}
+
+juce::File SappOrchestraProcessor::findPresetRoot(int preset) const
+{
+    if (preset < 0 || preset >= kNumOrchestraPresets) return {};
     const auto root = settings::samplesRoot();
-    // Direct hit first, then a shallow search for the library folder.
-    auto direct = root.getChildFile("sonatina").getChildFile("Sonatina Symphonic Orchestra");
-    if (direct.isDirectory()) return direct;
-    for (const auto& dir : root.findChildFiles(juce::File::findDirectories, true)) {
-        if (dir.getFileName() == "Sonatina Symphonic Orchestra") return dir;
-    }
+    const juce::String dirName(kOrchestraPresets[preset].rootDir);
+    for (const auto& dir : root.findChildFiles(juce::File::findDirectories, true))
+        if (dir.getFileName() == dirName) return dir;
     return {};
 }
 
-bool SappOrchestraProcessor::orchestraPresetAvailable() const
+bool SappOrchestraProcessor::orchestraPresetAvailable(int preset) const
 {
-    return findSonatinaRoot().isDirectory();
+    return findPresetRoot(preset).isDirectory();
 }
 
-bool SappOrchestraProcessor::loadOrchestraPreset()
+bool SappOrchestraProcessor::loadOrchestraPreset(int preset)
 {
-    if (!orchestraPresetAvailable()) return false;
+    if (!orchestraPresetAvailable(preset)) return false;
+    activePreset_ = preset;
     const uint64_t generation = ++loadGeneration_;
     loading_ = true;
     {
@@ -371,9 +403,10 @@ bool SappOrchestraProcessor::loadOrchestraPreset()
         loadStatus_ = "Setting up the orchestra (1/16)...";
     }
     // Seats + balance apply immediately; instruments stream in one by one.
+    const auto& def = kOrchestraPresets[preset];
     for (int i = 0; i < 16; ++i) {
-        engine_.setSlotStage(i, kOrchestraPreset[i].x, kOrchestraPreset[i].depth, 1.0f);
-        engine_.setSlotMix(i, kOrchestraPreset[i].gainDb, false, false);
+        engine_.setSlotStage(i, def.slots[i].x, def.slots[i].depth, 1.0f);
+        engine_.setSlotMix(i, def.slots[i].gainDb, false, false);
     }
     selectedSlot_ = -1;   // force the slot-0 reselect to reflect its new seat
     selectSlot(0);
@@ -393,11 +426,11 @@ void SappOrchestraProcessor::loadOrchestraPresetStep(size_t step, uint64_t gener
         if (onInstrumentChanged) onInstrumentChanged();
         return;
     }
-    const auto sonatina = findSonatinaRoot();
-    const juce::String fileName(kOrchestraPreset[step].fileName);
+    const auto libraryRoot = findPresetRoot(activePreset_);
+    const juce::String fileName(kOrchestraPresets[activePreset_].slots[step].fileName);
     juce::File file;
     for (const auto& candidate :
-         sonatina.findChildFiles(juce::File::findFiles, true, fileName))
+         libraryRoot.findChildFiles(juce::File::findFiles, true, fileName))
         if (!candidate.getFullPathName().contains("includes")) { file = candidate; break; }
 
     {

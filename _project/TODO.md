@@ -22,7 +22,8 @@
 - [ ] X-Ray panel in the editor (selection inspector + mapping view — the
       DiagnosticSnapshot feed already carries the data)
 - [x] FULL ORCHESTRA factory preset (16 Sonatina sections, seated+balanced)
-- [ ] More factory presets: Film/Chamber seatings, VPO variant, string-only
+- [x] VPO Full Orchestra preset (DXF brass)
+- [ ] More factory presets: Film/Chamber seatings, string-only
 - [ ] True round-robin reset + repeated-note policy controls in UI
 - [ ] Per-slot audio outputs (multi-bus) for DAW-side mixing
 

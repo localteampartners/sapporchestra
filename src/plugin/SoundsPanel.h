@@ -65,7 +65,7 @@ private:
 
     juce::Label title_, subtitle_, installedHeader_, statusLabel_, rootLabel_;
     juce::TextButton closeButton_{"CLOSE"};
-    juce::TextButton orchestraButton_{"LOAD FULL ORCHESTRA"};
+    juce::OwnedArray<juce::TextButton> orchestraButtons_;  // one per factory preset
     juce::TextButton folderButton_{"FOLDER..."};
     juce::OwnedArray<juce::TextButton> downloadButtons_;
     juce::OwnedArray<juce::Label> libraryLabels_;
