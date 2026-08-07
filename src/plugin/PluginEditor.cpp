@@ -1,5 +1,7 @@
 #include "PluginEditor.h"
 
+#include "SoundsPanel.h"
+
 namespace sapporch {
 
 namespace {
@@ -332,6 +334,17 @@ SappOrchestraEditor::SappOrchestraEditor(SappOrchestraProcessor& processor)
     addAndMakeVisible(loadButton_);
     diagButton_.onClick = [this] { processor_.loadDiagnosticInstrument(); };
     addAndMakeVisible(diagButton_);
+    soundsButton_.onClick = [this] {
+        if (soundsPanel_ == nullptr) {
+            soundsPanel_ = std::make_unique<SoundsPanel>(
+                processor_, [this] { soundsPanel_->setVisible(false); });
+            addChildComponent(*soundsPanel_);
+        }
+        soundsPanel_->setBounds(getLocalBounds().reduced(14));
+        soundsPanel_->setVisible(true);
+        soundsPanel_->toFront(true);
+    };
+    addAndMakeVisible(soundsButton_);
 
     auto header = [&](juce::Label& label, const juce::String& text) {
         label.setText(text, juce::dontSendNotification);
@@ -514,8 +527,11 @@ void SappOrchestraEditor::resized()
 
     title_.setBounds(s(18), s(10), s(260), s(34));
     subtitle_.setBounds(s(21), s(42), s(260), s(16));
-    loadButton_.setBounds(s(290), s(20), s(92), s(28));
-    diagButton_.setBounds(s(388), s(20), s(84), s(28));
+    soundsButton_.setBounds(s(290), s(20), s(104), s(28));
+    loadButton_.setBounds(s(400), s(20), s(88), s(28));
+    diagButton_.setBounds(s(494), s(20), s(80), s(28));
+    if (soundsPanel_ != nullptr)
+        soundsPanel_->setBounds(getLocalBounds().reduced(14));
     instrumentName_.setBounds(getWidth() - s(360), s(12), s(344), s(24));
     status_.setBounds(getWidth() - s(360), s(36), s(344), s(18));
 

@@ -6,6 +6,8 @@
 
 #include "PluginProcessor.h"
 
+namespace sapporch { class SoundsPanel; }
+
 namespace sapporch {
 
 // ------------------------------------------------------------------ palette --
@@ -113,6 +115,8 @@ private:
     juce::Label title_, subtitle_, instrumentName_, status_;
     juce::TextButton loadButton_{"LOAD SFZ"};
     juce::TextButton diagButton_{"BUILT-IN"};
+    juce::TextButton soundsButton_{"GET SOUNDS"};
+    std::unique_ptr<SoundsPanel> soundsPanel_;
 
     juce::Label articulationsHeader_, stageHeader_, hallHeader_, toneHeader_;
     juce::OwnedArray<juce::TextButton> articulationChips_;
