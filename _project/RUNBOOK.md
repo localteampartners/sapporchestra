@@ -17,9 +17,11 @@ editor offscreen (—orchestra loads the full 16-channel Sonatina preset first).
 
 ## Release (VST builds attach automatically, every time)
 
-```bash
-gh release create vX.Y.Z <local-arm64-zip> --title ... --notes ...
-```
+1. Bump `project(SappOrchestra VERSION X.Y.Z)` in CMakeLists.txt — the
+   in-plugin updater compares this (JucePlugin_VersionString) against the
+   latest GitHub tag, so the two MUST stay in sync.
+2. Update _project/CHANGELOG.md, commit, push.
+3. `gh release create vX.Y.Z <local-arm64-zip> --title ... --notes ...`
 
 Creating the release pushes the tag, which triggers
 `.github/workflows/release-builds.yml`: macOS-universal and Windows-x64 zips

@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 
+#include "SappSettings.h"
 #include "SoundsPanel.h"
 
 namespace sapporch {
@@ -458,6 +459,36 @@ SappOrchestraEditor::SappOrchestraEditor(SappOrchestraProcessor& processor)
     voicesLabel_.setColour(juce::Label::textColourId, palette::dim);
     addAndMakeVisible(voicesLabel_);
 
+    // --- in-plugin updater --------------------------------------------------
+    versionLabel_.setText("v" JucePlugin_VersionString, juce::dontSendNotification);
+    versionLabel_.setFont(uiFont(11.0f));
+    versionLabel_.setColour(juce::Label::textColourId, palette::dim);
+    versionLabel_.setTooltip("Click to check for updates");
+    versionLabel_.setInterceptsMouseClicks(true, false);
+    versionLabel_.addMouseListener(this, false);
+    addAndMakeVisible(versionLabel_);
+
+    updater_ = std::make_unique<UpdateManager>();
+    updater_->onStateChanged = [this] { refreshUpdateUi(); };
+    updateButton_.setVisible(false);
+    updateButton_.onClick = [this] {
+        if (updater_->state() == UpdateManager::State::UpdateAvailable)
+            updater_->installUpdate();
+    };
+    addAndMakeVisible(updateButton_);
+
+    // Auto-check at most once a day (shared Sapp settings file).
+    {
+        auto& settings = sapporch::settings::file();
+        const auto last = settings.getValue("lastUpdateCheck-sapporchestra", "0").getLargeIntValue();
+        const auto now = juce::Time::currentTimeMillis();
+        if (now - last > juce::int64(24) * 3600 * 1000) {
+            settings.setValue("lastUpdateCheck-sapporchestra", juce::String(now));
+            settings.saveIfNeeded();
+            updater_->checkForUpdate();
+        }
+    }
+
     processor_.onInstrumentChanged = [this] { rebuildArticulationChips(); };
     rebuildArticulationChips();
 
@@ -541,6 +572,41 @@ void SappOrchestraEditor::mouseDown(const juce::MouseEvent& e)
 {
     if (e.eventComponent == &instrumentName_)
         openSoundsPanel();
+    else if (e.eventComponent == &versionLabel_)
+        updater_->checkForUpdate();
+}
+
+void SappOrchestraEditor::refreshUpdateUi()
+{
+    using State = UpdateManager::State;
+    const auto state = updater_->state();
+    switch (state) {
+        case State::UpdateAvailable:
+            updateButton_.setButtonText("UPDATE " + updater_->latestTag());
+            updateButton_.setEnabled(true);
+            updateButton_.setVisible(true);
+            break;
+        case State::Downloading:
+        case State::Installing:
+            updateButton_.setButtonText(state == State::Downloading ? "DOWNLOADING..."
+                                                                     : "INSTALLING...");
+            updateButton_.setEnabled(false);
+            updateButton_.setVisible(true);
+            break;
+        case State::Installed:
+            updateButton_.setButtonText("INSTALLED - REOPEN");
+            updateButton_.setEnabled(false);
+            updateButton_.setVisible(true);
+            break;
+        default:
+            updateButton_.setVisible(false);
+            break;
+    }
+    versionLabel_.setText(state == State::Idle || state == State::UpdateAvailable
+                              ? juce::String("v" JucePlugin_VersionString)
+                              : updater_->statusText(),
+                          juce::dontSendNotification);
+    resized();
 }
 
 void SappOrchestraEditor::timerCallback()
@@ -689,6 +755,8 @@ void SappOrchestraEditor::resized()
 
     voicesLabel_.setBounds(s(14), s(556), s(90), s(20));
     meterArea_ = {s(110), s(560), s(150), s(14)};
+    versionLabel_.setBounds(s(270), s(556), s(210), s(20));
+    updateButton_.setBounds(s(486), s(553), s(150), s(26));
     legato_.setBounds(getWidth() - s(340), s(556), s(84), s(24));
     quality_.setBounds(getWidth() - s(250), s(556), s(92), s(24));
     limiter_.setBounds(getWidth() - s(150), s(556), s(90), s(24));

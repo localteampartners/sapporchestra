@@ -2,6 +2,17 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-07 — v0.7.0
+- In-plugin UPDATE button: the editor checks the GitHub latest release
+  (throttled to once a day; click the version label to check on demand).
+  When a newer version exists an UPDATE button appears — one click
+  downloads the right platform build, installs it (macOS: into
+  ~/Library/Audio/Plug-Ins with quarantine cleared; Windows: replaces the
+  loaded .vst3 via the rename trick), and the standalone app relaunches
+  itself updated. Inside a DAW the update lands on disk and the plugin
+  says "INSTALLED - REOPEN" (hosts own the loaded binary).
+- Plugin version now tracks release tags (0.7.0), enabling the comparison.
+
 ## 2026-08-07 — v0.6.0
 - Three FAMILY presets join the three orchestras: DRUMS + PERC (AVL kits,
   VSCO mallets/timpani, Sonatina percussion), PIANOS + KEYS (Salamander,

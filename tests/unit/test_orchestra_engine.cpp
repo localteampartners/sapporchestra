@@ -7,6 +7,7 @@
 #include <sapp/sounds/DiagnosticInstrument.h>
 
 #include "core/OrchestraEngine.h"
+#include "core/VersionCompare.h"
 
 using namespace sapp::orchestra;
 using sapp::sounds::MidiEvent;
@@ -365,4 +366,14 @@ TEST_CASE("multitimbral: per-slot mute and solo", "[rack]")
     e.setSlotMix(1, -24.0f, false, false);
     const double quiet = rmsOf(run(e, both, 24000), 8000, 24000);
     CHECK(loud > quiet * 8.0);
+}
+
+TEST_CASE("updater version comparison", "[updater]")
+{
+    CHECK(isNewerVersion("v0.7.1", "0.7.0"));
+    CHECK(isNewerVersion("v1.0.0", "0.9.9"));
+    CHECK(isNewerVersion("0.10.0", "0.9.0"));
+    CHECK_FALSE(isNewerVersion("v0.7.0", "0.7.0"));
+    CHECK_FALSE(isNewerVersion("v0.6.9", "0.7.0"));
+    CHECK_FALSE(isNewerVersion("garbage", "0.7.0"));
 }

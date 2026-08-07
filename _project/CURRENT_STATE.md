@@ -2,7 +2,7 @@
 
 <!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**As of 2026-08-06 — v0.5.0: full multitimbral orchestra.**
+**As of 2026-08-07 — v0.7.0: self-updating multitimbral orchestra.**
 
 ## Working
 

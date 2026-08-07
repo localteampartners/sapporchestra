@@ -5,6 +5,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 
 #include "PluginProcessor.h"
+#include "UpdateManager.h"
 
 namespace sapporch { class SoundsPanel; }
 
@@ -141,7 +142,10 @@ private:
     std::unique_ptr<StagePad> stagePad_;
     std::unique_ptr<OrchestraKeyboard> keyboard_;
 
-    juce::Label voicesLabel_;
+    juce::Label voicesLabel_, versionLabel_;
+    juce::TextButton updateButton_{"UPDATE"};
+    std::unique_ptr<UpdateManager> updater_;
+    void refreshUpdateUi();
     float meterL_ = 0.0f, meterR_ = 0.0f;
     juce::Rectangle<int> meterArea_;
 
