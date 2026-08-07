@@ -2,8 +2,6 @@ name: release-builds
 
 # Builds VST3/AU/Standalone for macOS (universal) and VST3/Standalone for
 # Windows, and attaches the zips to the GitHub release for the given tag.
-# Runs on tag push, or manually (Actions -> release-builds -> Run workflow)
-# against an existing release tag.
 
 on:
   push:
@@ -41,17 +39,17 @@ jobs:
           cp -R "$ART/AU/SappOrchestra.component" "$STAGE/"
           cp -R "$ART/Standalone/SappOrchestra.app" "$STAGE/"
           cp "build/sapporchestra" "$STAGE/" || true
-          cat > "$STAGE/INSTALL.txt" <<'EOF'
-SappOrchestra — macOS (universal: Apple Silicon + Intel)
-
-1. Copy SappOrchestra.vst3      -> ~/Library/Audio/Plug-Ins/VST3/
-2. Copy SappOrchestra.component -> ~/Library/Audio/Plug-Ins/Components/
-3. SappOrchestra.app is the standalone version.
-
-Unsigned build: after copying, clear quarantine once:
-  xattr -rc ~/Library/Audio/Plug-Ins/VST3/SappOrchestra.vst3 ~/Library/Audio/Plug-Ins/Components/SappOrchestra.component
-Then rescan plugins in your DAW.
-EOF
+          {
+            echo 'SappOrchestra — macOS (universal: Apple Silicon + Intel)'
+            echo ''
+            echo '1. Copy SappOrchestra.vst3      -> ~/Library/Audio/Plug-Ins/VST3/'
+            echo '2. Copy SappOrchestra.component -> ~/Library/Audio/Plug-Ins/Components/'
+            echo '3. SappOrchestra.app is the standalone version.'
+            echo ''
+            echo 'Unsigned build: after copying, clear quarantine once:'
+            echo '  xattr -rc ~/Library/Audio/Plug-Ins/VST3/SappOrchestra.vst3 ~/Library/Audio/Plug-Ins/Components/SappOrchestra.component'
+            echo 'Then rescan plugins in your DAW.'
+          } > "$STAGE/INSTALL.txt"
           zip -qry "$STAGE.zip" "$STAGE"
       - name: Upload to release
         run: |
@@ -78,16 +76,17 @@ EOF
           Copy-Item -Recurse "$art/VST3/SappOrchestra.vst3" "$stage/"
           Copy-Item "$art/Standalone/SappOrchestra.exe" "$stage/"
           Copy-Item "build/Release/sapporchestra.exe" "$stage/" -ErrorAction SilentlyContinue
-          @"
-SappOrchestra — Windows x64
-
-1. Copy the SappOrchestra.vst3 folder to: C:\Program Files\Common Files\VST3\
-2. SappOrchestra.exe is the standalone version — run it from anywhere.
-Then rescan plugins in your DAW.
-"@ | Set-Content "$stage/INSTALL.txt"
+          Set-Content -Path "$stage/INSTALL.txt" -Value @(
+            'SappOrchestra — Windows x64',
+            '',
+            '1. Copy the SappOrchestra.vst3 folder to: C:\Program Files\Common Files\VST3\',
+            '2. SappOrchestra.exe is the standalone version — run it from anywhere.',
+            'Then rescan plugins in your DAW.'
+          )
           Compress-Archive -Path $stage -DestinationPath "$stage.zip"
       - name: Upload to release
         shell: pwsh
         run: |
-          gh release view "$env:TAG" 2>$null; if ($LASTEXITCODE -ne 0) { gh release create "$env:TAG" --generate-notes }
+          gh release view "$env:TAG" 2>$null
+          if ($LASTEXITCODE -ne 0) { gh release create "$env:TAG" --generate-notes }
           gh release upload "$env:TAG" "SappOrchestra-$env:TAG-Windows-x64.zip" --clobber
