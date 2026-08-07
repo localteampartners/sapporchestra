@@ -320,70 +320,126 @@ void SappOrchestraProcessor::getSlotMix(int slot, float& gainDb, bool& mute, boo
 
 namespace {
 struct PresetSlot {
-    const char* fileName;   // located by name anywhere under the library root
+    const char* library;    // library folder name searched under samplesRoot
+    const char* fileName;   // filename or wildcard; "" leaves the slot empty
     float x, depth, gainDb;
 };
 struct OrchestraPresetDef {
-    const char* name;        // shown on the panel button
-    const char* rootDir;     // library folder name searched under samplesRoot
+    const char* name;       // shown on the panel button
     PresetSlot slots[16];
 };
-// Classic seating, audience view (negative x = left). Same seats for both
-// libraries; brass DXF patches in VPO give real CC1 dynamic morphing.
+// Classic seating, audience view (negative x = left).
+#define SON "Sonatina Symphonic Orchestra"
+#define VPO3 "Virtual-Playing-Orchestra3"
+#define VSCO "vsco2-ce"
 const OrchestraPresetDef kOrchestraPresets[] = {
-    {"SONATINA", "Sonatina Symphonic Orchestra",
-     {{"1st Violins KS.sfz", -0.65f, 0.25f, 0.0f},
-      {"2nd Violins KS.sfz", -0.30f, 0.30f, 0.0f},
-      {"Violas KS.sfz", 0.25f, 0.30f, 0.0f},
-      {"Celli KS.sfz", 0.55f, 0.35f, 0.0f},
-      {"Basses KS.sfz", 0.75f, 0.50f, 0.0f},
-      {"Flutes KS.sfz", -0.10f, 0.50f, -2.0f},
-      {"Oboes KS.sfz", 0.15f, 0.50f, -2.0f},
-      {"Clarinets KS.sfz", 0.15f, 0.60f, -2.0f},
-      {"Bassoons KS.sfz", -0.10f, 0.60f, -2.0f},
-      {"Horns KS.sfz", -0.45f, 0.65f, -1.0f},
-      {"Trumpets KS.sfz", 0.30f, 0.70f, -3.0f},
-      {"Trombones KS.sfz", 0.45f, 0.70f, -3.0f},
-      {"Tuba KS.sfz", 0.60f, 0.72f, -3.0f},
-      {"Timpani.sfz", 0.10f, 0.85f, -2.0f},
-      {"Concert Harp.sfz", -0.70f, 0.60f, -2.0f},
-      {"Mixed Chorus.sfz", 0.00f, 0.90f, -4.0f}}},
-    {"VPO", "Virtual-Playing-Orchestra3",
-     {{"1st-violin-SEC-KS-C2.sfz", -0.65f, 0.25f, 0.0f},
-      {"2nd-violin-SEC-KS-C2.sfz", -0.30f, 0.30f, 0.0f},
-      {"viola-SEC-KS-C2.sfz", 0.25f, 0.30f, 0.0f},
-      {"cello-SEC-KS-C6.sfz", 0.55f, 0.35f, 0.0f},
-      {"bass-SEC-KS-C6.sfz", 0.75f, 0.50f, 0.0f},
-      {"flute-SEC-KS-C2.sfz", -0.10f, 0.50f, -2.0f},
-      {"oboe-SEC-KS-C2.sfz", 0.15f, 0.50f, -2.0f},
-      {"clarinet-SEC-KS-C2.sfz", 0.15f, 0.60f, -2.0f},
-      {"bassoon-SEC-KS-C6.sfz", -0.10f, 0.60f, -2.0f},
-      {"french-horn-SEC-KS-C6-DXF.sfz", -0.45f, 0.65f, -1.0f},
-      {"trumpet-SEC-KS-C2-DXF.sfz", 0.30f, 0.70f, -3.0f},
-      {"trombone-SEC-KS-C6-DXF.sfz", 0.45f, 0.70f, -3.0f},
-      {"tuba-SOLO-KS-C6.sfz", 0.60f, 0.72f, -3.0f},
-      {"timpani-KS-C6.sfz", 0.10f, 0.85f, -2.0f},
-      {"harp-KS-C0.sfz", -0.70f, 0.60f, -2.0f},
-      {"choir-MIXED-normal-mod-wheel.sfz", 0.00f, 0.90f, -4.0f}}},
-    {"VSCO2 CE", "vsco2-ce",
-     {{"ViolinEns-KS.sfz", -0.65f, 0.25f, 0.0f},
-      {"SViolin-KS.sfz", -0.30f, 0.30f, -2.0f},
-      {"ViolaEns-KS.sfz", 0.25f, 0.30f, 0.0f},
-      {"CelloEns-KS.sfz", 0.55f, 0.35f, 0.0f},
-      {"Contrabass-KS.sfz", 0.75f, 0.50f, 0.0f},
-      {"Flute-KS.sfz", -0.10f, 0.50f, -2.0f},
-      {"OboeSusVib.sfz", 0.15f, 0.50f, -2.0f},
-      {"Clarinet-KS.sfz", 0.15f, 0.60f, -2.0f},
-      {"BassoonSus.sfz", -0.10f, 0.60f, -2.0f},
-      {"FHornSus.sfz", -0.45f, 0.65f, -1.0f},
-      {"TrumpetSusVib.sfz", 0.30f, 0.70f, -3.0f},
-      {"TromboneSus.sfz", 0.45f, 0.70f, -3.0f},
-      {"Tuba-KS.sfz", 0.60f, 0.72f, -3.0f},
-      {"Timpani.sfz", 0.10f, 0.85f, -2.0f},
-      {"Harp.sfz", -0.70f, 0.60f, -2.0f},
-      {"Glockenspiel.sfz", -0.30f, 0.85f, -4.0f}}},
+    {"ORCHESTRA: SONATINA",
+     {{SON, "1st Violins KS.sfz", -0.65f, 0.25f, 0.0f},
+      {SON, "2nd Violins KS.sfz", -0.30f, 0.30f, 0.0f},
+      {SON, "Violas KS.sfz", 0.25f, 0.30f, 0.0f},
+      {SON, "Celli KS.sfz", 0.55f, 0.35f, 0.0f},
+      {SON, "Basses KS.sfz", 0.75f, 0.50f, 0.0f},
+      {SON, "Flutes KS.sfz", -0.10f, 0.50f, -2.0f},
+      {SON, "Oboes KS.sfz", 0.15f, 0.50f, -2.0f},
+      {SON, "Clarinets KS.sfz", 0.15f, 0.60f, -2.0f},
+      {SON, "Bassoons KS.sfz", -0.10f, 0.60f, -2.0f},
+      {SON, "Horns KS.sfz", -0.45f, 0.65f, -1.0f},
+      {SON, "Trumpets KS.sfz", 0.30f, 0.70f, -3.0f},
+      {SON, "Trombones KS.sfz", 0.45f, 0.70f, -3.0f},
+      {SON, "Tuba KS.sfz", 0.60f, 0.72f, -3.0f},
+      {SON, "Timpani.sfz", 0.10f, 0.85f, -2.0f},
+      {SON, "Concert Harp.sfz", -0.70f, 0.60f, -2.0f},
+      {SON, "Mixed Chorus.sfz", 0.00f, 0.90f, -4.0f}}},
+    {"ORCHESTRA: VPO",
+     {{VPO3, "1st-violin-SEC-KS-C2.sfz", -0.65f, 0.25f, 0.0f},
+      {VPO3, "2nd-violin-SEC-KS-C2.sfz", -0.30f, 0.30f, 0.0f},
+      {VPO3, "viola-SEC-KS-C2.sfz", 0.25f, 0.30f, 0.0f},
+      {VPO3, "cello-SEC-KS-C6.sfz", 0.55f, 0.35f, 0.0f},
+      {VPO3, "bass-SEC-KS-C6.sfz", 0.75f, 0.50f, 0.0f},
+      {VPO3, "flute-SEC-KS-C2.sfz", -0.10f, 0.50f, -2.0f},
+      {VPO3, "oboe-SEC-KS-C2.sfz", 0.15f, 0.50f, -2.0f},
+      {VPO3, "clarinet-SEC-KS-C2.sfz", 0.15f, 0.60f, -2.0f},
+      {VPO3, "bassoon-SEC-KS-C6.sfz", -0.10f, 0.60f, -2.0f},
+      {VPO3, "french-horn-SEC-KS-C6-DXF.sfz", -0.45f, 0.65f, -1.0f},
+      {VPO3, "trumpet-SEC-KS-C2-DXF.sfz", 0.30f, 0.70f, -3.0f},
+      {VPO3, "trombone-SEC-KS-C6-DXF.sfz", 0.45f, 0.70f, -3.0f},
+      {VPO3, "tuba-SOLO-KS-C6.sfz", 0.60f, 0.72f, -3.0f},
+      {VPO3, "timpani-KS-C6.sfz", 0.10f, 0.85f, -2.0f},
+      {VPO3, "harp-KS-C0.sfz", -0.70f, 0.60f, -2.0f},
+      {VPO3, "choir-MIXED-normal-mod-wheel.sfz", 0.00f, 0.90f, -4.0f}}},
+    {"ORCHESTRA: VSCO2",
+     {{VSCO, "ViolinEns-KS.sfz", -0.65f, 0.25f, 0.0f},
+      {VSCO, "SViolin-KS.sfz", -0.30f, 0.30f, -2.0f},
+      {VSCO, "ViolaEns-KS.sfz", 0.25f, 0.30f, 0.0f},
+      {VSCO, "CelloEns-KS.sfz", 0.55f, 0.35f, 0.0f},
+      {VSCO, "Contrabass-KS.sfz", 0.75f, 0.50f, 0.0f},
+      {VSCO, "Flute-KS.sfz", -0.10f, 0.50f, -2.0f},
+      {VSCO, "OboeSusVib.sfz", 0.15f, 0.50f, -2.0f},
+      {VSCO, "Clarinet-KS.sfz", 0.15f, 0.60f, -2.0f},
+      {VSCO, "BassoonSus.sfz", -0.10f, 0.60f, -2.0f},
+      {VSCO, "FHornSus.sfz", -0.45f, 0.65f, -1.0f},
+      {VSCO, "TrumpetSusVib.sfz", 0.30f, 0.70f, -3.0f},
+      {VSCO, "TromboneSus.sfz", 0.45f, 0.70f, -3.0f},
+      {VSCO, "Tuba-KS.sfz", 0.60f, 0.72f, -3.0f},
+      {VSCO, "Timpani.sfz", 0.10f, 0.85f, -2.0f},
+      {VSCO, "Harp.sfz", -0.70f, 0.60f, -2.0f},
+      {VSCO, "Glockenspiel.sfz", -0.30f, 0.85f, -4.0f}}},
+    {"DRUMS + PERC",
+     {{"avl-drumkits", "Black_Pearl_5pc.sfz", 0.00f, 0.30f, 0.0f},
+      {"avl-drumkits", "Black_Pearl_4pc.sfz", -0.20f, 0.30f, 0.0f},
+      {"avl-drumkits", "Red_Zeppelin_5pc.sfz", 0.20f, 0.30f, 0.0f},
+      {"avl-drumkits", "Red_Zeppelin_4pc.sfz", 0.40f, 0.35f, 0.0f},
+      {"big-rusty-drums", "*usty*.sfz", -0.40f, 0.35f, 0.0f},
+      {"sm-drums", "*.sfz", -0.60f, 0.40f, 0.0f},
+      {VSCO, "GM-StylePerc.sfz", 0.00f, 0.50f, -1.0f},
+      {VSCO, "Timpani.sfz", 0.10f, 0.85f, -2.0f},
+      {VSCO, "TimpaniRolls.sfz", 0.15f, 0.85f, -2.0f},
+      {SON, "Timpani.sfz", 0.05f, 0.90f, -2.0f},
+      {VSCO, "Glockenspiel.sfz", -0.35f, 0.75f, -4.0f},
+      {VSCO, "Xylophone.sfz", 0.35f, 0.75f, -4.0f},
+      {VSCO, "Marimba.sfz", -0.50f, 0.70f, -3.0f},
+      {VSCO, "TubularBells.sfz", 0.50f, 0.80f, -4.0f},
+      {VPO3, "timpani-hit-n-roll.sfz", 0.00f, 0.92f, -2.0f},
+      {SON, "All Unpitched Percussion.sfz", -0.15f, 0.92f, -3.0f}}},
+    {"PIANOS + KEYS",
+     {{"salamander", "SalamanderGrandPiano-V3*.sfz", -0.15f, 0.25f, 0.0f},
+      {"upright-piano", "UprightPianoKW*.sfz", -0.45f, 0.30f, -1.0f},
+      {"fm-piano1", "FM-Piano1*.sfz", 0.35f, 0.30f, -2.0f},
+      {"old-piano-fb", "*.sfz", 0.60f, 0.35f, -2.0f},
+      {SON, "Grand Piano.sfz", 0.00f, 0.45f, -1.0f},
+      {VSCO, "UprightPiano.sfz", -0.60f, 0.40f, -2.0f},
+      {SON, "Harpsichord*.sfz", 0.55f, 0.45f, -3.0f},
+      {VPO3, "celesta.sfz", 0.30f, 0.55f, -4.0f},
+      {SON, "Celeste.sfz", -0.30f, 0.55f, -4.0f},
+      {VSCO, "OrganQuiet.sfz", 0.00f, 0.80f, -3.0f},
+      {VSCO, "OrganLoud.sfz", 0.00f, 0.85f, -6.0f},
+      {SON, "Organ*.sfz", -0.20f, 0.85f, -6.0f},
+      {SON, "Concert Harp.sfz", -0.70f, 0.50f, -2.0f},
+      {VSCO, "Harp.sfz", 0.70f, 0.50f, -2.0f},
+      {VSCO, "Glockenspiel.sfz", -0.40f, 0.70f, -5.0f},
+      {VSCO, "Marimba.sfz", 0.40f, 0.70f, -4.0f}}},
+    {"CHOIR + VOICES",
+     {{SON, "Mixed Chorus.sfz", 0.00f, 0.50f, 0.0f},
+      {SON, "Large Chrous.sfz", 0.00f, 0.70f, -1.0f},
+      {VPO3, "choir-MIXED-normal-mod-wheel.sfz", 0.00f, 0.60f, -1.0f},
+      {VPO3, "choir-FEMALE-sustain.sfz", -0.35f, 0.55f, -1.0f},
+      {VPO3, "choir-MALE-sustain.sfz", 0.35f, 0.55f, -1.0f},
+      {"freepats-synth-choir", "SynthPadChoir*.sfz", 0.00f, 0.40f, -3.0f},
+      {"legato-vocal", "09-complete_original_legato_a.sfz", 0.00f, 0.20f, -2.0f},
+      {"legato-vocal", "01-no_legato_polyphonic_only_no_vibrato_a.sfz", -0.20f, 0.30f, -3.0f},
+      {VPO3, "choir-FEMALE-PERF.sfz", -0.50f, 0.65f, -2.0f},
+      {VPO3, "choir-MALE-PERF.sfz", 0.50f, 0.65f, -2.0f},
+      {SON, "Organ*.sfz", 0.00f, 0.90f, -8.0f},
+      {SON, "Concert Harp.sfz", -0.70f, 0.50f, -3.0f},
+      {"", "", 0.0f, 0.35f, 0.0f},
+      {"", "", 0.0f, 0.35f, 0.0f},
+      {"", "", 0.0f, 0.35f, 0.0f},
+      {"", "", 0.0f, 0.35f, 0.0f}}},
 };
-constexpr int kNumOrchestraPresets = 3;
+#undef SON
+#undef VPO3
+#undef VSCO
+constexpr int kNumOrchestraPresets = 6;
 } // namespace
 
 int SappOrchestraProcessor::orchestraPresetCount() const { return kNumOrchestraPresets; }
@@ -394,19 +450,33 @@ juce::String SappOrchestraProcessor::orchestraPresetName(int preset) const
     return kOrchestraPresets[preset].name;
 }
 
-juce::File SappOrchestraProcessor::findPresetRoot(int preset) const
+juce::File SappOrchestraProcessor::findLibraryDir(const juce::String& dirName) const
 {
-    if (preset < 0 || preset >= kNumOrchestraPresets) return {};
+    if (dirName.isEmpty()) return {};
+    // Cached: panel timers poll availability, and the recursive scan of a
+    // large samples tree is not free.
+    const auto now = juce::Time::getMillisecondCounter();
+    auto it = libraryRootCache_.find(dirName);
+    if (it != libraryRootCache_.end() && now - it->second.second < 10000)
+        return it->second.first;
     const auto root = settings::samplesRoot();
-    const juce::String dirName(kOrchestraPresets[preset].rootDir);
-    for (const auto& dir : root.findChildFiles(juce::File::findDirectories, true))
-        if (dir.getFileName() == dirName) return dir;
-    return {};
+    juce::File found;
+    if (root.getChildFile(dirName).isDirectory())
+        found = root.getChildFile(dirName);
+    else
+        for (const auto& dir : root.findChildFiles(juce::File::findDirectories, true))
+            if (dir.getFileName() == dirName) { found = dir; break; }
+    libraryRootCache_[dirName] = {found, now};
+    return found;
 }
 
 bool SappOrchestraProcessor::orchestraPresetAvailable(int preset) const
 {
-    return findPresetRoot(preset).isDirectory();
+    if (preset < 0 || preset >= kNumOrchestraPresets) return false;
+    for (const auto& slot : kOrchestraPresets[preset].slots)
+        if (slot.fileName[0] != 0 && findLibraryDir(slot.library).isDirectory())
+            return true;
+    return false;
 }
 
 bool SappOrchestraProcessor::loadOrchestraPreset(int preset)
@@ -443,12 +513,18 @@ void SappOrchestraProcessor::loadOrchestraPresetStep(size_t step, uint64_t gener
         if (onInstrumentChanged) onInstrumentChanged();
         return;
     }
-    const auto libraryRoot = findPresetRoot(activePreset_);
-    const juce::String fileName(kOrchestraPresets[activePreset_].slots[step].fileName);
+    const auto& slotDef = kOrchestraPresets[activePreset_].slots[step];
+    const juce::String fileName(slotDef.fileName);
     juce::File file;
-    for (const auto& candidate :
-         libraryRoot.findChildFiles(juce::File::findFiles, true, fileName))
-        if (!candidate.getFullPathName().contains("includes")) { file = candidate; break; }
+    if (fileName.isNotEmpty()) {
+        const auto libraryRoot = findLibraryDir(slotDef.library);
+        if (libraryRoot.isDirectory())
+            for (const auto& candidate :
+                 libraryRoot.findChildFiles(juce::File::findFiles, true, fileName)) {
+                const auto p = candidate.getFullPathName();
+                if (!p.contains("includes") && !p.contains("modules")) { file = candidate; break; }
+            }
+    }
 
     {
         const juce::ScopedLock sl(loadLock_);

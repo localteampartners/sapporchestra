@@ -2,6 +2,15 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-07 — v0.6.0
+- Three FAMILY presets join the three orchestras: DRUMS + PERC (AVL kits,
+  VSCO mallets/timpani, Sonatina percussion), PIANOS + KEYS (Salamander,
+  FreePats uprights/FM, Sonatina grand/harpsichord/organ, VSCO keys,
+  harps), CHOIR + VOICES (Sonatina choruses, VPO choirs, synth pad choir,
+  legato solo voice). Preset slots now target libraries individually
+  (multi-library presets; missing libraries skip their slots and fill in
+  once downloaded). Library lookups cached.
+
 ## 2026-08-07 — v0.5.2
 - FULL ORCHESTRA - VSCO2 CE: third factory preset — the chamber-scale
   Versilian orchestra on 16 channels (violin/viola/cello ensembles + solo

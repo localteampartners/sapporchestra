@@ -5,6 +5,7 @@
 // sapporchestra_core / SappSounds.
 
 #include <array>
+#include <map>
 #include <atomic>
 #include <memory>
 #include <thread>
@@ -92,8 +93,9 @@ private:
     void finishLoad(sapp::sounds::LoadResult result, const juce::String& path,
                     uint64_t generation, int slot);
     void loadOrchestraPresetStep(size_t step, uint64_t generation);
-    juce::File findPresetRoot(int preset) const;
+    juce::File findLibraryDir(const juce::String& dirName) const;
     int activePreset_ = 0;
+    mutable std::map<juce::String, std::pair<juce::File, juce::uint32>> libraryRootCache_;
 
     juce::AudioProcessorValueTreeState apvts_;
     sapp::orchestra::OrchestraEngine engine_;

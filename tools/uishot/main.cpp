@@ -76,10 +76,11 @@ public:
 
         const bool showSounds = commandLine.contains("--sounds");
         const bool orchestra = commandLine.contains("--orchestra");
-        const int presetIndex = commandLine.contains("--orchestra3") ? 2
-                                : commandLine.contains("--orchestra2") ? 1 : 0;
+        int presetIndex = 0;
+        for (int p = 6; p >= 2; --p)
+            if (commandLine.contains("--orchestra" + juce::String(p))) presetIndex = p - 1;
         juce::String pathArg = commandLine.replace("--sounds", "")
-                                   .replace("--orchestra3", "").replace("--orchestra2", "")
+                                   .replace("--orchestra6", "").replace("--orchestra5", "").replace("--orchestra4", "").replace("--orchestra3", "").replace("--orchestra2", "")
                                    .replace("--orchestra", "")
                                    .trim().unquoted();
         const juce::String outPath = pathArg.isNotEmpty()
@@ -141,7 +142,7 @@ public:
         int occupied = 0;
         for (int i = 0; i < 16; ++i)
             if (processor->slotOccupied(i)) ++occupied;
-        if ((processor->isLoading() || occupied < 16) && tries < 240) {
+        if (processor->isLoading() && tries < 240) {
             juce::Timer::callAfterDelay(1000, [this, outPath, tries] {
                 waitForOrchestra(outPath, tries + 1);
             });

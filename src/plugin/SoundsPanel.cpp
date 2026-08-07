@@ -226,7 +226,7 @@ SoundsPanel::SoundsPanel(SappOrchestraProcessor& processor, std::function<void()
 
     for (int p = 0; p < processor_.orchestraPresetCount(); ++p) {
         auto* b = orchestraButtons_.add(new juce::TextButton(
-            "FULL ORCHESTRA - " + processor_.orchestraPresetName(p)));
+            processor_.orchestraPresetName(p)));
         b->onClick = [this, p] {
             if (processor_.loadOrchestraPreset(p)) {
                 if (onClose_) onClose_();
@@ -474,10 +474,11 @@ void SoundsPanel::resized()
         downloadButtons_[i]->setBounds(w / 2 - 128, y + 5, 104, 30);
         y += 52;
     }
+    const int presetW = (w / 2 - 60) / 3;
     for (int p = 0; p < orchestraButtons_.size(); ++p)
-        orchestraButtons_[p]->setBounds(24 + p * ((w / 2 - 140) / 2 + 6),
-                                        getHeight() - 104,
-                                        (w / 2 - 140) / 2, 32);
+        orchestraButtons_[p]->setBounds(24 + (p % 3) * (presetW + 6),
+                                        getHeight() - 140 + (p / 3) * 34,
+                                        presetW, 30);
     statusLabel_.setBounds(24, getHeight() - 62, w / 2 - 48, 22);
 
     installedHeader_.setBounds(w / 2 + 12, 84, w / 2 - 200, 16);
