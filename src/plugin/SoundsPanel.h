@@ -21,6 +21,7 @@ struct LibraryDef {
     const char* sizeText;
     const char* license;
     const char* kind;         // "zip" or "targz"
+    bool flatten = false;     // merge extracted top-level dirs into the dest
     std::vector<const char*> urls;
 };
 

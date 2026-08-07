@@ -6,7 +6,8 @@
 
 ## Working
 
-- FULL ORCHESTRA one-click presets: Sonatina AND Virtual Playing Orchestra
+- FULL ORCHESTRA one-click presets: Sonatina, Virtual Playing Orchestra,
+  and VSCO2 CE (chamber)
   (VPO brass = DXF dynamic-crossfade patches), 16 sections seated + balanced
   across 16 MIDI channels (Instruments panel buttons; sequential loading)
 - Multitimbral rack: 16 channel slots (per-slot instrument/stage/CCs +

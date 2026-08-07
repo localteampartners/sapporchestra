@@ -76,9 +76,10 @@ public:
 
         const bool showSounds = commandLine.contains("--sounds");
         const bool orchestra = commandLine.contains("--orchestra");
-        const int presetIndex = commandLine.contains("--orchestra2") ? 1 : 0;
+        const int presetIndex = commandLine.contains("--orchestra3") ? 2
+                                : commandLine.contains("--orchestra2") ? 1 : 0;
         juce::String pathArg = commandLine.replace("--sounds", "")
-                                   .replace("--orchestra2", "")
+                                   .replace("--orchestra3", "").replace("--orchestra2", "")
                                    .replace("--orchestra", "")
                                    .trim().unquoted();
         const juce::String outPath = pathArg.isNotEmpty()

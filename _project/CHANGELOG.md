@@ -2,6 +2,14 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-07 — v0.5.2
+- FULL ORCHESTRA - VSCO2 CE: third factory preset — the chamber-scale
+  Versilian orchestra on 16 channels (violin/viola/cello ensembles + solo
+  violin desk, solo winds, brass, timpani, harp, glockenspiel). Enabled by
+  a SappSounds parser fix (positional default_path) that makes VSCO's KS
+  combo patches fully playable, plus GET SOUNDS now downloading VSCO's
+  samples AND its SFZ mappings (separate branches) and merging them.
+
 ## 2026-08-07 — v0.5.1
 - FULL ORCHESTRA - VPO: second factory preset loads the complete Virtual
   Playing Orchestra across all 16 channels (same classic seating); brass

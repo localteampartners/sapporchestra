@@ -365,8 +365,25 @@ const OrchestraPresetDef kOrchestraPresets[] = {
       {"timpani-KS-C6.sfz", 0.10f, 0.85f, -2.0f},
       {"harp-KS-C0.sfz", -0.70f, 0.60f, -2.0f},
       {"choir-MIXED-normal-mod-wheel.sfz", 0.00f, 0.90f, -4.0f}}},
+    {"VSCO2 CE", "vsco2-ce",
+     {{"ViolinEns-KS.sfz", -0.65f, 0.25f, 0.0f},
+      {"SViolin-KS.sfz", -0.30f, 0.30f, -2.0f},
+      {"ViolaEns-KS.sfz", 0.25f, 0.30f, 0.0f},
+      {"CelloEns-KS.sfz", 0.55f, 0.35f, 0.0f},
+      {"Contrabass-KS.sfz", 0.75f, 0.50f, 0.0f},
+      {"Flute-KS.sfz", -0.10f, 0.50f, -2.0f},
+      {"OboeSusVib.sfz", 0.15f, 0.50f, -2.0f},
+      {"Clarinet-KS.sfz", 0.15f, 0.60f, -2.0f},
+      {"BassoonSus.sfz", -0.10f, 0.60f, -2.0f},
+      {"FHornSus.sfz", -0.45f, 0.65f, -1.0f},
+      {"TrumpetSusVib.sfz", 0.30f, 0.70f, -3.0f},
+      {"TromboneSus.sfz", 0.45f, 0.70f, -3.0f},
+      {"Tuba-KS.sfz", 0.60f, 0.72f, -3.0f},
+      {"Timpani.sfz", 0.10f, 0.85f, -2.0f},
+      {"Harp.sfz", -0.70f, 0.60f, -2.0f},
+      {"Glockenspiel.sfz", -0.30f, 0.85f, -4.0f}}},
 };
-constexpr int kNumOrchestraPresets = 2;
+constexpr int kNumOrchestraPresets = 3;
 } // namespace
 
 int SappOrchestraProcessor::orchestraPresetCount() const { return kNumOrchestraPresets; }

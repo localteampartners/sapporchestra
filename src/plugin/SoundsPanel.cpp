@@ -18,14 +18,15 @@ juce::Font panelFont(float h, bool bold = false)
 const std::vector<LibraryDef>& soundsRegistry()
 {
     static const std::vector<LibraryDef> registry{
-        {"vpo", "Virtual Playing Orchestra 3", "0.7 GB", "Free", "zip",
+        {"vpo", "Virtual Playing Orchestra 3", "0.7 GB", "Free", "zip", false,
          {"https://virtualplaying.com/go/virtual-playing-orchestra-v3-2-wave-files-archive/",
           "https://virtualplaying.com/go/virtual-playing-orchestra-v3-3-standard-scripts/",
           "https://virtualplaying.com/go/virtual-playing-orchestra-v3-3-performance-scripts/"}},
-        {"sonatina", "Sonatina Symphonic Orchestra", "2.6 GB", "CC Sampling Plus", "zip",
+        {"sonatina", "Sonatina Symphonic Orchestra", "2.6 GB", "CC Sampling Plus", "zip", false,
          {"https://codeload.github.com/peastman/sso/zip/refs/heads/master"}},
-        {"vsco2-ce", "VSCO 2 Community Edition", "3.3 GB", "CC0 public domain", "zip",
-         {"https://codeload.github.com/sgossner/VSCO-2-CE/zip/refs/heads/master"}},
+        {"vsco2-ce", "VSCO 2 Community Edition", "3.3 GB", "CC0 public domain", "zip", true,
+         {"https://codeload.github.com/sgossner/VSCO-2-CE/zip/refs/heads/master",
+          "https://codeload.github.com/sgossner/VSCO-2-CE/zip/refs/heads/SFZ"}},
     };
     return registry;
 }
@@ -67,9 +68,37 @@ public:
                 archive.deleteFile();
             }
         }
+        // Some libraries ship samples and mappings as separate archives whose
+        // zip roots differ (VSCO2-CE master + SFZ branches): merge every
+        // extracted top-level folder into the destination root.
+        if (ok && def_.flatten && !threadShouldExit()) {
+            setStatus("Merging...");
+            for (const auto& child :
+                 destDir_.findChildFiles(juce::File::findDirectories, false)) {
+                if (!child.getFileName().startsWith("VSCO")) continue;
+                mergeInto(child, destDir_);
+                child.deleteRecursively();
+            }
+        }
         const bool success = ok && !threadShouldExit();
         auto callback = onDone_;
         juce::MessageManager::callAsync([callback, success] { callback(success); });
+    }
+
+    // Recursive move-merge: files overwrite, directories merge.
+    static void mergeInto(const juce::File& src, const juce::File& dst)
+    {
+        for (const auto& entry : src.findChildFiles(
+                 juce::File::findFilesAndDirectories, false)) {
+            const auto target = dst.getChildFile(entry.getFileName());
+            if (entry.isDirectory()) {
+                target.createDirectory();
+                mergeInto(entry, target);
+            } else {
+                target.deleteFile();
+                entry.moveFileTo(target);
+            }
+        }
     }
 
 private:
