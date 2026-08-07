@@ -1,6 +1,7 @@
 #pragma once
 // Tiny JSON writer for the SappOrchestra CLI (mirrors SappSounds tools/common).
 
+#include <cstdio>
 #include <sstream>
 #include <string>
 #include <vector>
