@@ -1,6 +1,7 @@
 #include "SoundsPanel.h"
 
 #include "PluginEditor.h"  // palette
+#include "SappSettings.h"
 
 namespace sapporch {
 
@@ -10,21 +11,6 @@ juce::Font panelFont(float h, bool bold = false)
     return juce::Font(juce::FontOptions{h, bold ? juce::Font::bold : juce::Font::plain});
 }
 
-// Shared Sapp-wide settings file: every Sapp instrument reads the same
-// samples root, so a folder chosen once applies to the whole family.
-juce::PropertiesFile& sappSettings()
-{
-    static juce::PropertiesFile::Options options = [] {
-        juce::PropertiesFile::Options o;
-        o.applicationName = "SampleLibraries";
-        o.filenameSuffix = ".settings";
-        o.folderName = "Sapp";
-        o.osxLibrarySubFolder = "Application Support";
-        return o;
-    }();
-    static juce::PropertiesFile file(options);
-    return file;
-}
 } // namespace
 
 // ---------------------------------------------------------------- registry --
@@ -209,6 +195,16 @@ SoundsPanel::SoundsPanel(SappOrchestraProcessor& processor, std::function<void()
         addAndMakeVisible(button);
     }
 
+    orchestraButton_.onClick = [this] {
+        if (processor_.loadOrchestraPreset()) {
+            if (onClose_) onClose_();
+        } else {
+            statusLabel_.setText("Sonatina not found - download it above first.",
+                                 juce::dontSendNotification);
+        }
+    };
+    addAndMakeVisible(orchestraButton_);
+
     installedHeader_.setText("YOUR INSTRUMENTS - double-click to load",
                              juce::dontSendNotification);
     installedHeader_.setFont(panelFont(10.5f, true));
@@ -251,20 +247,9 @@ SoundsPanel::SoundsPanel(SappOrchestraProcessor& processor, std::function<void()
 
 SoundsPanel::~SoundsPanel() { job_.reset(); }
 
-juce::File SoundsPanel::samplesRoot()
-{
-    const auto fallback = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-                              .getChildFile("Samples");
-    const auto stored = sappSettings().getValue("samplesRoot", fallback.getFullPathName());
-    const juce::File root(stored);
-    return root.isDirectory() ? root : fallback;
-}
+juce::File SoundsPanel::samplesRoot() { return settings::samplesRoot(); }
 
-void SoundsPanel::setSamplesRoot(const juce::File& root)
-{
-    sappSettings().setValue("samplesRoot", root.getFullPathName());
-    sappSettings().saveIfNeeded();
-}
+void SoundsPanel::setSamplesRoot(const juce::File& root) { settings::setSamplesRoot(root); }
 
 void SoundsPanel::chooseFolder()
 {
@@ -398,6 +383,11 @@ void SoundsPanel::startDownload(int index)
 
 void SoundsPanel::timerCallback()
 {
+    installedHeader_.setText("YOUR INSTRUMENTS - double-click to load into channel " +
+                                 juce::String(processor_.selectedSlot() + 1),
+                             juce::dontSendNotification);
+    orchestraButton_.setEnabled(processor_.orchestraPresetAvailable() && job_ == nullptr);
+
     for (int i = 0; i < downloadButtons_.size(); ++i) {
         const auto& def = soundsRegistry()[size_t(i)];
         if (isInstalled(def)) {
@@ -448,6 +438,7 @@ void SoundsPanel::resized()
         downloadButtons_[i]->setBounds(w / 2 - 128, y + 5, 104, 30);
         y += 52;
     }
+    orchestraButton_.setBounds(24, getHeight() - 108, w / 2 - 152, 34);
     statusLabel_.setBounds(24, getHeight() - 62, w / 2 - 48, 22);
 
     installedHeader_.setBounds(w / 2 + 12, 84, w / 2 - 200, 16);

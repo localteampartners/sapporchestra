@@ -1,47 +1,29 @@
 # HANDOFF — sapporchestra
 
-<!-- UPDATE WHEN: starting a multi-step task (write the plan BEFORE the first edit), after each completed step (tick it), the moment a gotcha is hit or an approach is ruled out, and when the work ships (reset this file — durable facts graduate to CURRENT_STATE.md / CHANGELOG.md per the routing table) -->
+<!-- UPDATE WHEN: pausing work, finishing a session, or another agent/session takes over -->
 
-**Work in flight:** none <!-- or: yes — <one line>. Keep this accurate; /resume reads it first. -->
-**Last updated:** <!-- YYYY-MM-DD HH:MM -->
+**Last session:** 2026-08-06 — v0.5.0 released.
 
-The session-continuity journal. If a session dies, compacts, or moves to
-another machine, this file **is** the working context — a brand-new session
-must be able to resume from it alone, without the old transcript. Update it
-*while* working, not after.
+## Where things stand
 
----
+Multitimbral orchestra is complete: 16 MIDI-channel slots, per-slot mixer
+(vol/mute/solo), per-slot stage seats, shared hall, Instruments browser with
+configurable shared samples folder, GET SOUNDS downloads, and the one-click
+FULL ORCHESTRA Sonatina preset (all 16 channels seated + balanced). 22 tests
+green; releases carry Windows-x64 + macOS-universal zips automatically via
+the release-builds workflow (fires on every tag).
 
-## Active task
+## Watch out for
 
-<!-- One or two lines: what we're building/fixing and why. -->
+- Stage APVTS params are selected-slot-scoped; the processor writes through
+  on change only (so per-channel CC16/17/18 aren't clobbered). selectSlot
+  reflects the slot's seat back into APVTS — mind the lastStage caches.
+- SappLink table/manifest must stay in sync (drift-guard test; sapptune repo
+  holds the source of truth; CC16/17/18 are engine-side per-channel).
+- Other sessions own ~/apps/sappsynth and sapptune's engine/ — don't touch.
 
-## Plan
+## Next obvious work
 
-<!-- Checklist written before starting. Tick items as they complete. -->
-
-- [ ]
-
-## Done so far
-
-<!-- What's actually finished: files touched, and crucially what's DEPLOYED vs local-only / uncommitted. -->
-
--
-
-## Discovered along the way
-
-<!-- The expensive-to-relearn stuff: gotchas hit, dead ends already ruled out, constraints found mid-task. A new session must not re-pay for these. Durable workflow rules also go to CONVENTIONS.md. -->
-
--
-
-## Next step
-
-<!-- Exactly where to pick up — specific enough to act on immediately. -->
-
--
-
----
-
-When the task ships: move durable facts into CURRENT_STATE.md / CHANGELOG.md,
-then reset this file to `Work in flight: none` with empty sections. Never let
-a stale handoff masquerade as live work — if it contradicts `git log`, say so.
+_project/TODO.md "Next" list: DAW validation pass (needs a human at Logic/
+Reaper), missing-library relocate dialog, X-Ray panel, more presets,
+per-slot audio outputs.

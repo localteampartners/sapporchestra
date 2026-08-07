@@ -1,78 +1,39 @@
 # RUNBOOK — sapporchestra
 
-<!-- UPDATE WHEN: any command here stops working, or a new operational task becomes routine enough to document -->
+<!-- UPDATE WHEN: how to run / build / release changes -->
 
-The authoritative source for "how do I operate this thing?"
-
----
-
-## Run locally
-
-### One-time setup
+## Build & test (local)
 
 ```bash
-# <!-- FILL IN: clone, install deps, create .env from .env.example, run migrations -->
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # sibling ../sappsounds required
+cmake --build build -j8                           # Standalone/VST3/AU/CLI/tests
+./build/SappOrchestraTests                        # 22 cases
+./verify.sh                                       # fast loop (plugin off)
 ```
 
-### Start the app
+macOS plugins auto-copy to ~/Library/Audio/Plug-Ins. UI verification:
+`SappOrchestraUiShot [--sounds|--orchestra|--cctest] [out.png]` renders the
+editor offscreen (—orchestra loads the full 16-channel Sonatina preset first).
+
+## Release (VST builds attach automatically, every time)
 
 ```bash
-# <!-- FILL IN: e.g., npm run dev -->
+gh release create vX.Y.Z <local-arm64-zip> --title ... --notes ...
 ```
 
-### Run tests
+Creating the release pushes the tag, which triggers
+`.github/workflows/release-builds.yml`: macOS-universal and Windows-x64 zips
+(VST3 + Standalone + CLI + INSTALL.txt) build on CI and attach to the same
+release. Manual re-run: Actions → release-builds → Run workflow with the tag.
 
-```bash
-# <!-- FILL IN -->
-```
+## Samples
 
----
+In-plugin: GET SOUNDS (downloads to the shared samples folder; FULL
+ORCHESTRA preset needs Sonatina). CLI/new machine:
+`../sappsounds/scripts/fetch-library.sh get all`.
 
-## Deploy
+## Rollback
 
-**Hosting:** see [INFRASTRUCTURE.md](INFRASTRUCTURE.md) for the *where*.
-This section is the *how*.
-
-```bash
-# <!-- FILL IN: deploy command or step-by-step -->
-```
-
-### Rollback
-
-```bash
-# <!-- FILL IN: how to revert a bad deploy -->
-```
-
----
-
-## Operate (if there's a VPS / running service)
-
-### Check it's alive
-
-```bash
-# <!-- FILL IN: healthcheck URL, or ssh + systemctl status -->
-```
-
-### Restart
-
-```bash
-# <!-- FILL IN -->
-```
-
-### Tail logs
-
-```bash
-# <!-- FILL IN -->
-```
-
----
-
-
-## Debug checklist
-
-When something's broken, try these in order:
-
-1. <!-- FILL IN: e.g., "check the healthcheck endpoint" -->
-2. <!-- FILL IN: e.g., "tail the last 200 log lines" -->
-3. <!-- FILL IN: e.g., "verify env vars match ENVIRONMENT.md" -->
-4. <!-- FILL IN: e.g., "check external service status pages (see DEPENDENCIES.md)" -->
+Releases are additive; delete a bad release/tag with `gh release delete` +
+`git push --delete origin <tag>`. Plugin state schema is versioned
+(stateVersion 2, legacy sfzPath migrates to slot 1).

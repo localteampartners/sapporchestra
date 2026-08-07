@@ -1,49 +1,17 @@
 # DEPENDENCIES — sapporchestra
 
-<!-- UPDATE WHEN: an external service/API is added or removed, an account changes hands, billing changes, or credentials rotate -->
+<!-- UPDATE WHEN: an external service, API, account, or library is added/removed -->
 
-External systems this project depends on. If access to any of these is lost,
-part or all of the project stops working. This file tells you what to recover.
+| Dependency | Kind | Pin / source | Notes |
+|---|---|---|---|
+| SappSounds | sibling library | ../sappsounds (FetchContent fallback: github main) | the sample engine; Sapp::Sounds |
+| JUCE | build dep | 8.0.15 (FetchContent) | plugin/UI framework |
+| Catch2 | test dep | v3.7.1 (FetchContent) | unit tests |
+| dr_flac | vendored (via SappSounds) | third_party, public domain | FLAC decode |
+| Sonatina Symphonic Orchestra | content (user-downloaded) | github peastman/sso | FULL ORCHESTRA preset target; CC Sampling Plus |
+| Virtual Playing Orchestra 3 | content (user-downloaded) | virtualplaying.com / archive.org | DXF crossfade patches |
+| VSCO 2 CE | content (user-downloaded) | github sgossner/VSCO-2-CE | CC0 |
+| GitHub Actions | CI | .github/workflows/release-builds.yml | attaches Windows+macOS zips to every release |
+| SappLink manifest | contract | ~/apps/sapptune/sapplink/manifests/sapporchestra.json | vendored copy drift-guarded in tests/data |
 
-Runtime library dependencies live in `package.json` / `requirements.txt` /
-similar — don't duplicate them here.
-
----
-
-## External services
-
-| Service | What it does | Account (email) | Paid with | Monthly cost | Status page |
-|---|---|---|---|---|---|
-| <!-- e.g., Stripe --> | <!-- e.g., payments --> | <!-- email on the account --> | <!-- card ending 1234 --> | <!-- $X/mo --> | <!-- URL --> |
-|  |  |  |  |  |  |
-
-## Domain / DNS
-
-See [INFRASTRUCTURE.md](INFRASTRUCTURE.md) for the primary domain. If this
-project uses additional domains or subdomains from different registrars, list
-them here.
-
-- <!-- FILL IN or "none" -->
-
-## APIs & credentials
-
-For each external API, point to where the credentials live (never paste them here).
-
-| API | Credential type | Where it lives |
-|---|---|---|
-| <!-- e.g., OpenAI --> | <!-- API key --> | <!-- e.g., "1Password > sapporchestra > OPENAI_API_KEY" --> |
-|  |  |  |
-
-## Single points of failure
-
-If any one of these goes down or we lose access, what breaks?
-
-- <!-- FILL IN: e.g., "Stripe down → checkout broken (read-only mode still works)" -->
-- 
-
-## Account recovery
-
-Who / what can recover access if the primary account is locked out?
-
-- <!-- FILL IN: e.g., "all provider accounts use localteampartners@gmail.com; recovery email is X" -->
-- 
+No servers, no accounts, no secrets.

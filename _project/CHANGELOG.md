@@ -2,6 +2,15 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-06 — v0.5.0
+- FULL ORCHESTRA preset: one click in the Instruments panel loads the
+  complete Sonatina orchestra across all 16 MIDI channels — strings I/II/
+  violas/celli/basses, flutes/oboes/clarinets/bassoons, horns/trumpets/
+  trombones/tuba, timpani, harp, chorus — each seated classically and
+  balance-trimmed. Instruments stream in sequentially with live status.
+- Instruments browser: header shows which channel a double-click loads into.
+- Shared settings helper (SappSettings.h) for the family-wide samples folder.
+
 ## 2026-08-06 — v0.4.0
 - Per-slot mixer: volume (−60…+12 dB), mute, and solo per MIDI-channel slot
   (MIX strip under the channel grid; solo silences all non-soloed slots;

@@ -75,13 +75,23 @@ public:
         }
 
         const bool showSounds = commandLine.contains("--sounds");
-        juce::String pathArg = commandLine.replace("--sounds", "").trim().unquoted();
+        const bool orchestra = commandLine.contains("--orchestra");
+        juce::String pathArg =
+            commandLine.replace("--sounds", "").replace("--orchestra", "").trim().unquoted();
         const juce::String outPath = pathArg.isNotEmpty()
             ? pathArg : juce::String("/tmp/sapporchestra-ui.png");
 
         processor = std::make_unique<sapporch::SappOrchestraProcessor>();
         processor->prepareToPlay(48000.0, 512);
         editor.reset(processor->createEditor());
+
+        if (orchestra) {
+            juce::Timer::callAfterDelay(2500, [this, outPath] {
+                processor->loadOrchestraPreset();
+                waitForOrchestra(outPath, 0);
+            });
+            return;
+        }
 
         // Give the async diagnostic-instrument load and fonts time to settle,
         // then play a chord so the meter/voices are alive in the shot.
@@ -120,6 +130,31 @@ public:
                 quit();
             });
         });
+    }
+
+    void waitForOrchestra(juce::String outPath, int tries)
+    {
+        int occupied = 0;
+        for (int i = 0; i < 16; ++i)
+            if (processor->slotOccupied(i)) ++occupied;
+        if ((processor->isLoading() || occupied < 16) && tries < 240) {
+            juce::Timer::callAfterDelay(1000, [this, outPath, tries] {
+                waitForOrchestra(outPath, tries + 1);
+            });
+            return;
+        }
+        std::printf("orchestra slots occupied: %d\n", occupied);
+        auto snapshot = editor->createComponentSnapshot(editor->getLocalBounds(), true, 2.0f);
+        juce::File file(outPath);
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        juce::PNGImageFormat png;
+        if (stream.openedOk() && png.writeImageToStream(snapshot, stream))
+            std::printf("wrote %s (%dx%d)\n", outPath.toRawUTF8(),
+                        snapshot.getWidth(), snapshot.getHeight());
+        editor.reset();
+        processor.reset();
+        quit();
     }
 
     void shutdown() override {}

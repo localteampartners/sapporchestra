@@ -4,6 +4,8 @@
 
 Authoritative: [../architecture.md](../architecture.md). Quick facts:
 
+- MULTITIMBRAL: OrchestraEngine is a 16-slot rack (slot = MIDI channel);
+  per-slot sampler/stage/ER/mixer/live CCs; one shared hall; omni fallback
 - Product layers: `src/core` (framework-free orchestra policy: dynamics,
   expression, stage, ER + FDN hall, DNA, offline render) → `src/plugin`
   (JUCE APVTS/processor/editor) and `src/cli` (JSON agent CLI)

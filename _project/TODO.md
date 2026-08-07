@@ -21,9 +21,10 @@
 - [ ] Missing-library relocate dialog (Locate / Search common paths / Disable)
 - [ ] X-Ray panel in the editor (selection inspector + mapping view — the
       DiagnosticSnapshot feed already carries the data)
-- [ ] Factory presets: seating templates (Classical/Film/Chamber) +
-      per-section starting points; preset browser strip in the header
+- [x] FULL ORCHESTRA factory preset (16 Sonatina sections, seated+balanced)
+- [ ] More factory presets: Film/Chamber seatings, VPO variant, string-only
 - [ ] True round-robin reset + repeated-note policy controls in UI
+- [ ] Per-slot audio outputs (multi-bus) for DAW-side mixing
 
 ## Later (state of the art)
 

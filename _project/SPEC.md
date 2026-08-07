@@ -22,7 +22,8 @@ orchestral renderer — the agent CLI is a core deliverable, not an add-on.
 
 ## Goals
 
-- Musical out of the box (built-in Diagnostic Orchestra, strong defaults)
+- Musical out of the box (built-in Diagnostic Orchestra, one-click FULL
+  ORCHESTRA preset, strong defaults)
 - Reliable articulation switching (UI, parameter, keyswitch — one state)
 - Deterministic renders for agent workflows (seeded)
 - Stable parameter/state contracts (IDs versioned from day 1)
@@ -30,6 +31,7 @@ orchestral renderer — the agent CLI is a core deliverable, not an add-on.
 ## Non-goals (v1)
 
 - DAW/notation/score features; Kontakt compatibility; sample store
-- Full multitimbral rack & section buses (after single-instrument is solid)
+- Section buses / separate outputs per section (multitimbral 16-channel rack
+  SHIPPED in v0.4; per-section audio outputs remain future work)
 - Automatic AI orchestration inside the plugin (external agents do this via
   the CLI)

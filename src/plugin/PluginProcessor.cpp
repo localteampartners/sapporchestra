@@ -4,6 +4,7 @@
 
 #include "../core/SappLinkCCMap.h"
 #include "PluginEditor.h"
+#include "SappSettings.h"
 
 namespace sapporch {
 
@@ -313,6 +314,123 @@ void SappOrchestraProcessor::setSlotMix(int slot, float gainDb, bool mute, bool 
 void SappOrchestraProcessor::getSlotMix(int slot, float& gainDb, bool& mute, bool& solo) const
 {
     const_cast<sapp::orchestra::OrchestraEngine&>(engine_).getSlotMix(slot, gainDb, mute, solo);
+}
+
+// --- Full Orchestra factory preset (Sonatina, 16 channels) -----------------
+
+namespace {
+struct PresetSlot {
+    const char* fileName;   // located by name anywhere under the Sonatina root
+    float x, depth, gainDb;
+};
+// Classic seating, audience view (negative x = left).
+const PresetSlot kOrchestraPreset[16] = {
+    {"1st Violins KS.sfz", -0.65f, 0.25f, 0.0f},
+    {"2nd Violins KS.sfz", -0.30f, 0.30f, 0.0f},
+    {"Violas KS.sfz", 0.25f, 0.30f, 0.0f},
+    {"Celli KS.sfz", 0.55f, 0.35f, 0.0f},
+    {"Basses KS.sfz", 0.75f, 0.50f, 0.0f},
+    {"Flutes KS.sfz", -0.10f, 0.50f, -2.0f},
+    {"Oboes KS.sfz", 0.15f, 0.50f, -2.0f},
+    {"Clarinets KS.sfz", 0.15f, 0.60f, -2.0f},
+    {"Bassoons KS.sfz", -0.10f, 0.60f, -2.0f},
+    {"Horns KS.sfz", -0.45f, 0.65f, -1.0f},
+    {"Trumpets KS.sfz", 0.30f, 0.70f, -3.0f},
+    {"Trombones KS.sfz", 0.45f, 0.70f, -3.0f},
+    {"Tuba KS.sfz", 0.60f, 0.72f, -3.0f},
+    {"Timpani.sfz", 0.10f, 0.85f, -2.0f},
+    {"Concert Harp.sfz", -0.70f, 0.60f, -2.0f},
+    {"Mixed Chorus.sfz", 0.00f, 0.90f, -4.0f},
+};
+} // namespace
+
+juce::File SappOrchestraProcessor::findSonatinaRoot() const
+{
+    const auto root = settings::samplesRoot();
+    // Direct hit first, then a shallow search for the library folder.
+    auto direct = root.getChildFile("sonatina").getChildFile("Sonatina Symphonic Orchestra");
+    if (direct.isDirectory()) return direct;
+    for (const auto& dir : root.findChildFiles(juce::File::findDirectories, true)) {
+        if (dir.getFileName() == "Sonatina Symphonic Orchestra") return dir;
+    }
+    return {};
+}
+
+bool SappOrchestraProcessor::orchestraPresetAvailable() const
+{
+    return findSonatinaRoot().isDirectory();
+}
+
+bool SappOrchestraProcessor::loadOrchestraPreset()
+{
+    if (!orchestraPresetAvailable()) return false;
+    const uint64_t generation = ++loadGeneration_;
+    loading_ = true;
+    {
+        const juce::ScopedLock sl(loadLock_);
+        loadStatus_ = "Setting up the orchestra (1/16)...";
+    }
+    // Seats + balance apply immediately; instruments stream in one by one.
+    for (int i = 0; i < 16; ++i) {
+        engine_.setSlotStage(i, kOrchestraPreset[i].x, kOrchestraPreset[i].depth, 1.0f);
+        engine_.setSlotMix(i, kOrchestraPreset[i].gainDb, false, false);
+    }
+    selectedSlot_ = -1;   // force the slot-0 reselect to reflect its new seat
+    selectSlot(0);
+    loadOrchestraPresetStep(0, generation);
+    return true;
+}
+
+void SappOrchestraProcessor::loadOrchestraPresetStep(size_t step, uint64_t generation)
+{
+    if (generation != loadGeneration_.load()) return;  // superseded
+    if (step >= 16) {
+        loading_ = false;
+        {
+            const juce::ScopedLock sl(loadLock_);
+            loadStatus_ = "Full orchestra ready - 16 channels";
+        }
+        if (onInstrumentChanged) onInstrumentChanged();
+        return;
+    }
+    const auto sonatina = findSonatinaRoot();
+    const juce::String fileName(kOrchestraPreset[step].fileName);
+    juce::File file;
+    for (const auto& candidate :
+         sonatina.findChildFiles(juce::File::findFiles, true, fileName))
+        if (!candidate.getFullPathName().contains("includes")) { file = candidate; break; }
+
+    {
+        const juce::ScopedLock sl(loadLock_);
+        loadStatus_ = "Loading " + fileName.upToLastOccurrenceOf(".sfz", false, true) +
+                      " (" + juce::String(int(step) + 1) + "/16)...";
+    }
+    if (onInstrumentChanged) onInstrumentChanged();
+
+    if (!file.existsAsFile()) {
+        loadOrchestraPresetStep(step + 1, generation);
+        return;
+    }
+    const juce::String path = file.getFullPathName();
+    const int slot = int(step);
+    std::thread([this, path, generation, slot, step] {
+        sapp::sounds::InstrumentLoader loader;
+        auto result = loader.loadSfz(path.toStdString());
+        juce::MessageManager::callAsync(
+            [this, result = std::move(result), path, generation, slot, step]() mutable {
+                if (generation != loadGeneration_.load()) return;
+                if (result.ok && result.instrument != nullptr) {
+                    const juce::ScopedLock sl(loadLock_);
+                    engine_.setInstrument(result.instrument, slot);
+                    engine_.collectRetired();
+                    slotPaths_[size_t(slot)] = path;
+                    slotNames_[size_t(slot)] =
+                        juce::String(result.instrument->definition.name);
+                }
+                if (onInstrumentChanged) onInstrumentChanged();
+                loadOrchestraPresetStep(step + 1, generation);
+            });
+    }).detach();
 }
 
 juce::String SappOrchestraProcessor::slotName(int slot) const

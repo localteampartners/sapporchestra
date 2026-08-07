@@ -37,3 +37,15 @@ forwards raw CC state to SFZ region conditions. CC 1/11/64 are engine-native
 performance controls and are excluded from the mapping. The sapporchestra
 manifest was authored directly from the real APVTS ranges, so plugin and
 manifest agree with zero corrections.
+
+## 2026-08-06 — Multitimbral as 16 fixed slots keyed by MIDI channel
+No dynamic slot management: slot N ≡ channel N+1, always allocated (voices
+are cheap; instruments load on demand). Omni fallback while ≤1 slot is
+occupied keeps single-instrument workflows and ch-1 keyboards working.
+Stage/dynamics/expression are per-slot (driven per channel); the hall,
+master, DNA, legato, quality stay global — one room, one conductor.
+
+## 2026-08-06 — Factory preset = search-by-filename over the library
+The FULL ORCHESTRA preset finds Sonatina's section patches by filename
+anywhere under the samples root instead of hardcoding paths — resilient to
+how the library was unpacked. Missing files skip their slot gracefully.

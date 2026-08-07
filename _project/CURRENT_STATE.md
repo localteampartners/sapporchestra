@@ -2,12 +2,15 @@
 
 <!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**As of 2026-08-06 — v0.3.0: expressive (legato + dynamic morphing).**
+**As of 2026-08-06 — v0.5.0: full multitimbral orchestra.**
 
 ## Working
 
-- Multitimbral rack: 16 channel slots (per-slot instrument/stage/CCs, shared
-  hall, omni fallback, channel strip UI, state v2)
+- FULL ORCHESTRA one-click preset: 16 Sonatina sections seated + balanced
+  across 16 MIDI channels (Instruments panel button; sequential loading)
+- Multitimbral rack: 16 channel slots (per-slot instrument/stage/CCs +
+  volume/mute/solo mixer, shared hall, omni fallback, channel strip UI,
+  state v2)
 
 - OrchestraEngine: CC1 dynamics (level+timbre), CC11 expression, stage
   placement (pan/width/depth), early reflections + 8-line FDN hall, Analog
