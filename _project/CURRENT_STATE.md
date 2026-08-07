@@ -29,7 +29,8 @@
 
 - Not yet validated in a DAW session (Reaper/Logic/Live) or with pluginval/auval
 - VPO download link not yet sourced (Sonatina 747-file library fully working)
-- No library browser/indexer UI yet (single SFZ file loading only)
+- Library browser shipped (Instruments panel: shared samples folder,
+  categories, filter, prev/next stepping, one-click downloads)
 - Missing-library relink UI minimal (falls back to diagnostic + status text)
 - Sample streaming pending (inherits SappSounds full-RAM preload)
 - CLI is single-instrument per render (stems for arrangements)

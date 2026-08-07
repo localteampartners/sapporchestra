@@ -103,6 +103,7 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void mouseDown(const juce::MouseEvent&) override;
 
 private:
     void timerCallback() override;
@@ -116,7 +117,10 @@ private:
     juce::TextButton loadButton_{"LOAD SFZ"};
     juce::TextButton diagButton_{"BUILT-IN"};
     juce::TextButton soundsButton_{"GET SOUNDS"};
+    juce::TextButton prevButton_{"<"}, nextButton_{">"};
     std::unique_ptr<SoundsPanel> soundsPanel_;
+    SoundsPanel& ensureSoundsPanel();
+    void openSoundsPanel();
 
     juce::Label articulationsHeader_, stageHeader_, hallHeader_, toneHeader_;
     juce::OwnedArray<juce::TextButton> articulationChips_;

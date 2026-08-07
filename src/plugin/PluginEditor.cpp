@@ -334,17 +334,17 @@ SappOrchestraEditor::SappOrchestraEditor(SappOrchestraProcessor& processor)
     addAndMakeVisible(loadButton_);
     diagButton_.onClick = [this] { processor_.loadDiagnosticInstrument(); };
     addAndMakeVisible(diagButton_);
-    soundsButton_.onClick = [this] {
-        if (soundsPanel_ == nullptr) {
-            soundsPanel_ = std::make_unique<SoundsPanel>(
-                processor_, [this] { soundsPanel_->setVisible(false); });
-            addChildComponent(*soundsPanel_);
-        }
-        soundsPanel_->setBounds(getLocalBounds().reduced(14));
-        soundsPanel_->setVisible(true);
-        soundsPanel_->toFront(true);
-    };
+    soundsButton_.onClick = [this] { openSoundsPanel(); };
     addAndMakeVisible(soundsButton_);
+    prevButton_.onClick = [this] { ensureSoundsPanel().stepInstrument(-1); };
+    nextButton_.onClick = [this] { ensureSoundsPanel().stepInstrument(1); };
+    addAndMakeVisible(prevButton_);
+    addAndMakeVisible(nextButton_);
+
+    // The instrument name itself opens the browser.
+    instrumentName_.setInterceptsMouseClicks(true, false);
+    instrumentName_.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    instrumentName_.addMouseListener(this, false);
 
     auto header = [&](juce::Label& label, const juce::String& text) {
         label.setText(text, juce::dontSendNotification);
@@ -414,6 +414,24 @@ SappOrchestraEditor::~SappOrchestraEditor()
     setLookAndFeel(nullptr);
 }
 
+SoundsPanel& SappOrchestraEditor::ensureSoundsPanel()
+{
+    if (soundsPanel_ == nullptr) {
+        soundsPanel_ = std::make_unique<SoundsPanel>(
+            processor_, [this] { soundsPanel_->setVisible(false); });
+        addChildComponent(*soundsPanel_);
+    }
+    return *soundsPanel_;
+}
+
+void SappOrchestraEditor::openSoundsPanel()
+{
+    auto& panel = ensureSoundsPanel();
+    panel.setBounds(getLocalBounds().reduced(14));
+    panel.setVisible(true);
+    panel.toFront(true);
+}
+
 void SappOrchestraEditor::chooseSfz()
 {
     fileChooser_ = std::make_unique<juce::FileChooser>(
@@ -447,6 +465,12 @@ void SappOrchestraEditor::rebuildArticulationChips()
     instrumentName_.setText(processor_.currentInstrumentName(), juce::dontSendNotification);
     resized();
     repaint();
+}
+
+void SappOrchestraEditor::mouseDown(const juce::MouseEvent& e)
+{
+    if (e.eventComponent == &instrumentName_)
+        openSoundsPanel();
 }
 
 void SappOrchestraEditor::timerCallback()
@@ -532,8 +556,10 @@ void SappOrchestraEditor::resized()
     diagButton_.setBounds(s(494), s(20), s(80), s(28));
     if (soundsPanel_ != nullptr)
         soundsPanel_->setBounds(getLocalBounds().reduced(14));
-    instrumentName_.setBounds(getWidth() - s(360), s(12), s(344), s(24));
-    status_.setBounds(getWidth() - s(360), s(36), s(344), s(18));
+    prevButton_.setBounds(getWidth() - s(410), s(14), s(24), s(24));
+    nextButton_.setBounds(getWidth() - s(382), s(14), s(24), s(24));
+    instrumentName_.setBounds(getWidth() - s(352), s(12), s(336), s(24));
+    status_.setBounds(getWidth() - s(352), s(36), s(336), s(18));
 
     // Articulation panel.
     articulationsHeader_.setBounds(s(26), s(82), s(170), s(16));

@@ -9,6 +9,22 @@ juce::Font panelFont(float h, bool bold = false)
 {
     return juce::Font(juce::FontOptions{h, bold ? juce::Font::bold : juce::Font::plain});
 }
+
+// Shared Sapp-wide settings file: every Sapp instrument reads the same
+// samples root, so a folder chosen once applies to the whole family.
+juce::PropertiesFile& sappSettings()
+{
+    static juce::PropertiesFile::Options options = [] {
+        juce::PropertiesFile::Options o;
+        o.applicationName = "SampleLibraries";
+        o.filenameSuffix = ".settings";
+        o.folderName = "Sapp";
+        o.osxLibrarySubFolder = "Application Support";
+        return o;
+    }();
+    static juce::PropertiesFile file(options);
+    return file;
+}
 } // namespace
 
 // ---------------------------------------------------------------- registry --
@@ -167,13 +183,13 @@ private:
 SoundsPanel::SoundsPanel(SappOrchestraProcessor& processor, std::function<void()> onClose)
     : processor_(processor), onClose_(std::move(onClose))
 {
-    title_.setText("Sounds", juce::dontSendNotification);
+    title_.setText("Instruments", juce::dontSendNotification);
     title_.setFont(juce::Font(juce::FontOptions{"Georgia", 26.0f, juce::Font::plain}));
     title_.setColour(juce::Label::textColourId, palette::goldBright);
     addAndMakeVisible(title_);
 
-    subtitle_.setText("Free sample libraries — download once, play everywhere. "
-                      "Installed under ~/Samples (shared with all Sapp instruments).",
+    subtitle_.setText("Everything in your samples folder, ready to play - plus free "
+                      "libraries to download. The folder is shared by all Sapp instruments.",
                       juce::dontSendNotification);
     subtitle_.setFont(panelFont(12.0f));
     subtitle_.setColour(juce::Label::textColourId, palette::dim);
@@ -193,22 +209,28 @@ SoundsPanel::SoundsPanel(SappOrchestraProcessor& processor, std::function<void()
         addAndMakeVisible(button);
     }
 
-    installedHeader_.setText("INSTALLED INSTRUMENTS — double-click to load",
+    installedHeader_.setText("YOUR INSTRUMENTS - double-click to load",
                              juce::dontSendNotification);
     installedHeader_.setFont(panelFont(10.5f, true));
     installedHeader_.setColour(juce::Label::textColourId, palette::dim);
     addAndMakeVisible(installedHeader_);
 
+    rootLabel_.setText(samplesRoot().getFullPathName(), juce::dontSendNotification);
+    rootLabel_.setFont(panelFont(11.0f));
+    rootLabel_.setColour(juce::Label::textColourId, palette::dim);
+    rootLabel_.setJustificationType(juce::Justification::centredRight);
+    addAndMakeVisible(rootLabel_);
+
+    folderButton_.onClick = [this] { chooseFolder(); };
+    addAndMakeVisible(folderButton_);
+
+    categoryBox_.setTextWhenNothingSelected("All categories");
+    categoryBox_.onChange = [this] { applyFilters(); };
+    addAndMakeVisible(categoryBox_);
+
     filterBox_.setTextToShowWhenEmpty("filter... (e.g. violin, horn, timpani)", palette::dim);
     filterBox_.setFont(panelFont(13.0f));
-    filterBox_.onTextChange = [this] {
-        const auto needle = filterBox_.getText().toLowerCase();
-        filtered_.clear();
-        for (const auto& inst : instruments_)
-            if (needle.isEmpty() || inst.label.toLowerCase().contains(needle))
-                filtered_.push_back(inst);
-        instrumentList_->updateContent();
-    };
+    filterBox_.onTextChange = [this] { applyFilters(); };
     addAndMakeVisible(filterBox_);
 
     listModel_ = std::make_unique<InstrumentListModel>(*this);
@@ -231,8 +253,53 @@ SoundsPanel::~SoundsPanel() { job_.reset(); }
 
 juce::File SoundsPanel::samplesRoot()
 {
-    return juce::File::getSpecialLocation(juce::File::userHomeDirectory)
-        .getChildFile("Samples");
+    const auto fallback = juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+                              .getChildFile("Samples");
+    const auto stored = sappSettings().getValue("samplesRoot", fallback.getFullPathName());
+    const juce::File root(stored);
+    return root.isDirectory() ? root : fallback;
+}
+
+void SoundsPanel::setSamplesRoot(const juce::File& root)
+{
+    sappSettings().setValue("samplesRoot", root.getFullPathName());
+    sappSettings().saveIfNeeded();
+}
+
+void SoundsPanel::chooseFolder()
+{
+    folderChooser_ = std::make_unique<juce::FileChooser>(
+        "Choose your samples folder (scanned for .sfz instruments)", samplesRoot());
+    folderChooser_->launchAsync(juce::FileBrowserComponent::openMode |
+                                    juce::FileBrowserComponent::canSelectDirectories,
+                                [this](const juce::FileChooser& chooser) {
+                                    const auto dir = chooser.getResult();
+                                    if (dir.isDirectory()) {
+                                        setSamplesRoot(dir);
+                                        rootLabel_.setText(dir.getFullPathName(),
+                                                           juce::dontSendNotification);
+                                        rescanInstruments();
+                                    }
+                                });
+}
+
+void SoundsPanel::stepInstrument(int direction)
+{
+    if (instruments_.empty()) {
+        rescanInstruments();
+        return;
+    }
+    const juce::String current = processor_.currentInstrumentPath();
+    int index = -1;
+    for (size_t i = 0; i < instruments_.size(); ++i)
+        if (instruments_[i].file.getFullPathName() == current) {
+            index = int(i);
+            break;
+        }
+    const int count = int(instruments_.size());
+    const int next = index < 0 ? (direction >= 0 ? 0 : count - 1)
+                               : ((index + direction) % count + count) % count;
+    processor_.loadSfzInstrument(instruments_[size_t(next)].file);
 }
 
 bool SoundsPanel::isInstalled(const LibraryDef& def) const
@@ -255,25 +322,60 @@ void SoundsPanel::rescanInstruments()
         const auto root = samplesRoot();
         for (const auto& file :
              root.findChildFiles(juce::File::findFiles, true, "*.sfz")) {
-            if (file.getFullPathName().contains("/includes/") ||
-                file.getFullPathName().contains("\\includes\\"))
+            const auto path = file.getFullPathName().replaceCharacter('\\', '/');
+            if (path.contains("/includes/") || path.contains("/modules/") ||
+                path.contains("/Data/"))
                 continue;
             InstalledInstrument inst;
             inst.file = file;
-            inst.label = file.getRelativePathFrom(root).replaceCharacter('\\', '/');
+            inst.label = file.getRelativePathFrom(root)
+                             .replaceCharacter('\\', '/')
+                             .dropLastCharacters(4);  // strip ".sfz"
             found.push_back(std::move(inst));
-            if (found.size() >= 3000) break;
+            if (found.size() >= 5000) break;
         }
         std::sort(found.begin(), found.end(),
                   [](const auto& a, const auto& b) { return a.label < b.label; });
         juce::MessageManager::callAsync([this, found = std::move(found)]() mutable {
             instruments_ = std::move(found);
-            filtered_ = instruments_;
-            filterBox_.onTextChange();
-            instrumentList_->updateContent();
+
+            // Categories = first path component (library), or library/section
+            // for two-level layouts. Rebuild the combo, keep "All" first.
+            juce::StringArray categories;
+            for (const auto& inst : instruments_) {
+                auto parts = juce::StringArray::fromTokens(inst.label, "/", "");
+                if (parts.size() >= 2)
+                    categories.addIfNotAlreadyThere(parts[0]);
+                if (parts.size() >= 3)
+                    categories.addIfNotAlreadyThere(parts[0] + "/" + parts[1]);
+            }
+            categories.sort(true);
+            const auto previous = categoryBox_.getText();
+            categoryBox_.clear(juce::dontSendNotification);
+            categoryBox_.addItem("All categories", 1);
+            for (int i = 0; i < categories.size(); ++i)
+                categoryBox_.addItem(categories[i], i + 2);
+            for (int i = 0; i < categoryBox_.getNumItems(); ++i)
+                if (categoryBox_.getItemText(i) == previous)
+                    categoryBox_.setSelectedItemIndex(i, juce::dontSendNotification);
+
+            applyFilters();
             scanning_.store(false);
         });
     });
+}
+
+void SoundsPanel::applyFilters()
+{
+    const auto needle = filterBox_.getText().toLowerCase();
+    const auto category = categoryBox_.getSelectedId() > 1 ? categoryBox_.getText() : juce::String();
+    filtered_.clear();
+    for (const auto& inst : instruments_) {
+        if (category.isNotEmpty() && !inst.label.startsWith(category + "/")) continue;
+        if (needle.isNotEmpty() && !inst.label.toLowerCase().contains(needle)) continue;
+        filtered_.push_back(inst);
+    }
+    if (instrumentList_ != nullptr) instrumentList_->updateContent();
 }
 
 void SoundsPanel::startDownload(int index)
@@ -284,8 +386,8 @@ void SoundsPanel::startDownload(int index)
     statusLabel_.setText("Downloading " + juce::String(def.displayName) + "...",
                          juce::dontSendNotification);
     job_ = std::make_unique<DownloadJob>(def, dest, [this](bool ok) {
-        statusLabel_.setText(ok ? "Done — pick an instrument on the right."
-                                : "Download failed — check your connection and retry.",
+        statusLabel_.setText(ok ? "Done - pick an instrument on the right."
+                                : "Download failed - check your connection and retry.",
                              juce::dontSendNotification);
         job_.reset();
         rescanInstruments();
@@ -348,9 +450,12 @@ void SoundsPanel::resized()
     }
     statusLabel_.setBounds(24, getHeight() - 62, w / 2 - 48, 22);
 
-    installedHeader_.setBounds(w / 2 + 12, 84, w / 2 - 36, 16);
-    filterBox_.setBounds(w / 2 + 12, 104, w / 2 - 36, 26);
-    instrumentList_->setBounds(w / 2 + 12, 138, w / 2 - 36, getHeight() - 162);
+    installedHeader_.setBounds(w / 2 + 12, 84, w / 2 - 200, 16);
+    folderButton_.setBounds(w - 112, 78, 88, 26);
+    rootLabel_.setBounds(w / 2 + 12, getHeight() - 34, w / 2 - 36, 18);
+    categoryBox_.setBounds(w / 2 + 12, 104, (w / 2 - 44) / 2, 26);
+    filterBox_.setBounds(w / 2 + 20 + (w / 2 - 44) / 2, 104, (w / 2 - 44) / 2, 26);
+    instrumentList_->setBounds(w / 2 + 12, 138, w / 2 - 36, getHeight() - 178);
 }
 
 } // namespace sapporch

@@ -37,6 +37,15 @@ public:
     void resized() override;
     void visibilityChanged() override;
 
+    // Step to the previous/next installed instrument relative to the one the
+    // processor currently has loaded (header ◀ ▶ arrows). Scans on demand.
+    void stepInstrument(int direction);
+
+    // The samples root folder every Sapp instrument shares. Persisted in
+    // ~/Library/Application Support/Sapp/ (or the OS equivalent).
+    static juce::File samplesRoot();
+    static void setSamplesRoot(const juce::File& root);
+
 private:
     class DownloadJob;
     struct InstalledInstrument {
@@ -46,15 +55,17 @@ private:
 
     void timerCallback() override;
     void rescanInstruments();          // async, message thread completion
+    void applyFilters();
+    void chooseFolder();
     void startDownload(int registryIndex);
     bool isInstalled(const LibraryDef& def) const;
-    static juce::File samplesRoot();
 
     SappOrchestraProcessor& processor_;
     std::function<void()> onClose_;
 
-    juce::Label title_, subtitle_, installedHeader_, statusLabel_;
+    juce::Label title_, subtitle_, installedHeader_, statusLabel_, rootLabel_;
     juce::TextButton closeButton_{"CLOSE"};
+    juce::TextButton folderButton_{"FOLDER..."};
     juce::OwnedArray<juce::TextButton> downloadButtons_;
     juce::OwnedArray<juce::Label> libraryLabels_;
 
@@ -62,10 +73,12 @@ private:
     std::unique_ptr<InstrumentListModel> listModel_;
     std::unique_ptr<juce::ListBox> instrumentList_;
     juce::TextEditor filterBox_;
+    juce::ComboBox categoryBox_;
 
     std::vector<InstalledInstrument> instruments_, filtered_;
     std::unique_ptr<DownloadJob> job_;
     std::atomic<bool> scanning_{false};
+    std::unique_ptr<juce::FileChooser> folderChooser_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SoundsPanel)
 };

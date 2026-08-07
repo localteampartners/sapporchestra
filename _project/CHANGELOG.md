@@ -2,6 +2,14 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-06 — v0.4.0 (unreleased)
+- Instruments browser: the GET SOUNDS panel is now the full instrument
+  chooser — configurable samples folder (persisted in the shared
+  Sapp/SampleLibraries settings so every Sapp instrument uses the same
+  root), category dropdown, filter, double-click to load; header
+  instrument name is clickable and ◀ ▶ arrows step through everything
+  installed. One-click library downloads (VPO/Sonatina/VSCO2) built in.
+
 ## 2026-08-06 — v0.3.1
 - Virtual Playing Orchestra validated end-to-end (454/454; DXF dynamic
   crossfade patches morph real recorded pp/ff layers on CC1)

@@ -74,8 +74,10 @@ public:
             return;
         }
 
-        const juce::String outPath = commandLine.trim().isNotEmpty()
-            ? commandLine.trim().unquoted() : juce::String("/tmp/sapporchestra-ui.png");
+        const bool showSounds = commandLine.contains("--sounds");
+        juce::String pathArg = commandLine.replace("--sounds", "").trim().unquoted();
+        const juce::String outPath = pathArg.isNotEmpty()
+            ? pathArg : juce::String("/tmp/sapporchestra-ui.png");
 
         processor = std::make_unique<sapporch::SappOrchestraProcessor>();
         processor->prepareToPlay(48000.0, 512);
@@ -83,8 +85,13 @@ public:
 
         // Give the async diagnostic-instrument load and fonts time to settle,
         // then play a chord so the meter/voices are alive in the shot.
-        juce::Timer::callAfterDelay(2500, [this, outPath]
+        juce::Timer::callAfterDelay(2500, [this, outPath, showSounds]
         {
+            if (showSounds)
+                for (auto* child : editor->getChildren())
+                    if (auto* b = dynamic_cast<juce::TextButton*>(child))
+                        if (b->getButtonText() == "GET SOUNDS")
+                            b->triggerClick();
             juce::AudioBuffer<float> buffer(2, 512);
             juce::MidiBuffer midi;
             midi.addEvent(juce::MidiMessage::noteOn(1, 48, 0.8f), 0);
@@ -96,7 +103,7 @@ public:
                 midi.clear();
             }
 
-            juce::Timer::callAfterDelay(300, [this, outPath]
+            juce::Timer::callAfterDelay(showSounds ? 2500 : 300, [this, outPath]
             {
                 auto snapshot = editor->createComponentSnapshot(editor->getLocalBounds(), true, 2.0f);
                 juce::File file(outPath);
