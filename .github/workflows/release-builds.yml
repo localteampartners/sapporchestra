@@ -1,6 +1,6 @@
 name: release-builds
 
-# Builds VST3/AU/Standalone for macOS (universal) and VST3/Standalone for
+# WINDOWS ONLY (mac jobs removed 2026-08-08). Builds VST3/Standalone for
 # Windows, and attaches the zips to the GitHub release for the given tag.
 
 on:
@@ -16,45 +16,6 @@ permissions:
   contents: write
 
 jobs:
-  macos:
-    runs-on: macos-14
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Configure
-        run: >
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-          -DSAPPORCHESTRA_BUILD_TESTS=OFF
-      - name: Build
-        run: cmake --build build --config Release -j3
-      - name: Package
-        run: |
-          ART="build/SappOrchestraPlugin_artefacts/Release"
-          STAGE="SappOrchestra-$TAG-macOS-universal"
-          mkdir -p "$STAGE"
-          cp -R "$ART/VST3/SappOrchestra.vst3" "$STAGE/"
-          cp -R "$ART/AU/SappOrchestra.component" "$STAGE/"
-          cp -R "$ART/Standalone/SappOrchestra.app" "$STAGE/"
-          cp "build/sapporchestra" "$STAGE/" || true
-          {
-            echo 'SappOrchestra — macOS (universal: Apple Silicon + Intel)'
-            echo ''
-            echo '1. Copy SappOrchestra.vst3      -> ~/Library/Audio/Plug-Ins/VST3/'
-            echo '2. Copy SappOrchestra.component -> ~/Library/Audio/Plug-Ins/Components/'
-            echo '3. SappOrchestra.app is the standalone version.'
-            echo ''
-            echo 'Unsigned build: after copying, clear quarantine once:'
-            echo '  xattr -rc ~/Library/Audio/Plug-Ins/VST3/SappOrchestra.vst3 ~/Library/Audio/Plug-Ins/Components/SappOrchestra.component'
-            echo 'Then rescan plugins in your DAW.'
-          } > "$STAGE/INSTALL.txt"
-          zip -qry "$STAGE.zip" "$STAGE"
-      - name: Upload to release
-        run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes || true
-          gh release upload "$TAG" "SappOrchestra-$TAG-macOS-universal.zip" --clobber
 
   windows:
     runs-on: windows-latest
