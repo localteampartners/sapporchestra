@@ -48,6 +48,11 @@ jobs:
       - name: Upload to release
         shell: powershell
         run: |
-          gh release view "$env:TAG" 2>$null
+          # gh writes "release not found" to stderr, and Windows PowerShell turns
+          # native stderr into a terminating error under ErrorActionPreference=Stop
+          # (pwsh 7 on hosted runners does not) - so soften it around the probe.
+          $ErrorActionPreference = "Continue"
+          gh release view "$env:TAG" 2>&1 | Out-Null
           if ($LASTEXITCODE -ne 0) { gh release create "$env:TAG" --generate-notes }
+          $ErrorActionPreference = "Stop"
           gh release upload "$env:TAG" "SappOrchestra-$env:TAG-Windows-x64.zip" --clobber
