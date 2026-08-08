@@ -18,7 +18,7 @@ permissions:
 jobs:
 
   windows:
-    runs-on: windows-latest
+    runs-on: ${{ vars.WINDOWS_RUNNER || 'windows-latest' }}
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
