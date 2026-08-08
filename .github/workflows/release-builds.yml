@@ -29,7 +29,7 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
       - name: Package
-        shell: pwsh
+        shell: powershell
         run: |
           $art = "build/SappOrchestraPlugin_artefacts/Release"
           $stage = "SappOrchestra-$env:TAG-Windows-x64"
@@ -46,7 +46,7 @@ jobs:
           )
           Compress-Archive -Path $stage -DestinationPath "$stage.zip"
       - name: Upload to release
-        shell: pwsh
+        shell: powershell
         run: |
           gh release view "$env:TAG" 2>$null
           if ($LASTEXITCODE -ne 0) { gh release create "$env:TAG" --generate-notes }

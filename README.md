@@ -77,3 +77,29 @@ composition script lives at [scripts/make_demo.py](scripts/make_demo.py).
   responsibility split + dependency report
 - [`_project/`](_project/) — working state, decisions, roadmap
   (agents: read [CLAUDE.md](CLAUDE.md) first)
+
+## Where releases are built
+
+Tags are built by a **self-hosted GitHub Actions runner on the Windows
+machine** (`desktop-14886fp`), not by GitHub's hosted runners — hosted minutes
+are billed and the account is currently blocked. Windows jobs read:
+
+```yaml
+runs-on: ${{ vars.WINDOWS_RUNNER || 'windows-latest' }}
+```
+
+so the repo variable `WINDOWS_RUNNER=self-hosted` sends builds to that
+machine, and deleting the variable sends them back to GitHub. No workflow
+edits either way.
+
+**Every repo needs its own runner.** The account is a GitHub *user*, not an
+organisation, and user accounts can't share runners across repos — so each
+repo gets its own registration (its own folder and Windows service) on the
+same machine. The prerequisites are installed once and shared: Git, CMake
+3.24+, and Visual Studio 2022 Build Tools with the "Desktop development with
+C++" workload.
+
+Full setup, including the per-repo registration steps:
+[sapptune/RUNNER.md](https://github.com/localteampartners/sapptune/blob/master/RUNNER.md).
+
+**Builds are Windows-only** — macOS jobs were removed on 2026-08-08.
