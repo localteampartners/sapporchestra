@@ -2,7 +2,7 @@
 
 <!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**As of 2026-08-07 — v0.7.0: self-updating multitimbral orchestra.**
+**As of 2026-08-09 — v0.7.x: host-automatable SFZ selection (sapptune #20).**
 
 ## Working
 
@@ -25,13 +25,21 @@
 - Host state save/restore (APVTS v1 + sfzPath, diagnostic fallback)
 - Agent CLI (`sapporchestra`): inspect / validate / params / render (JSON,
   deterministic seeds)
-- Tests: 12 cases green (engine policy, room, deterministic renders)
+- Tests: 30 cases green (engine policy, room, deterministic renders,
+  SappLink drift guard, SFZ library index/order)
 - Demo pipeline: scripts/make_demo.py + scripts/make_sonatina_demo.py
   (real 7-section Sonatina piece: seated stems, shared hall)
 - CLI scan (library discovery) + seats (orchestral seating templates,
   render --seat)
 - SappLink CC-in: 10 CCs → parameters (manifest-driven, drift-guarded),
   plugin slew path + CLI/offline path; CC1/CC11/CC64 stay engine-native
+- Host-automatable SFZ selection (sapptune #20): `instrument` choice param
+  (appended last, automation indices hold) enumerates the library via
+  `<samplesRoot>/.sapp-sfz-index.json` (ordering contract in
+  src/core/SfzLibrary, case-insensitive by label); MIDI bank-select +
+  program change loads by entry index into the channel's slot; state stays
+  path-based; CLI `sfz-index` prints name→choice→normalized; rescans take
+  effect next instantiation
 
 ## Known issues / limits
 

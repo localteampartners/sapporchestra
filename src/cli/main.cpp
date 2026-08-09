@@ -29,6 +29,7 @@
 
 #include "../core/OrchestraRender.h"
 #include "../core/SappLinkCCMap.h"
+#include "../core/SfzLibrary.h"
 #include "Json.h"
 
 using namespace sapp::sounds;
@@ -434,6 +435,62 @@ int cmdScan(int argc, char** argv)
     return 0;
 }
 
+int cmdSfzIndex(int argc, char** argv)
+{
+    // The enumeration behind the plugin's `instrument` choice parameter
+    // (sapptune issue #20). Prints entry -> choice-index -> normalized value
+    // so a driving session can map "Sonatina .../Trumpets KS" to the exact
+    // live_set_param write. --rescan rewrites <root>/.sapp-sfz-index.json;
+    // a running plugin instance picks the new list up on its NEXT
+    // instantiation (choice lists are fixed per instance).
+    std::string root;
+    bool rescan = false;
+    for (int i = 2; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--root" && i + 1 < argc) root = argv[++i];
+        else if (arg == "--rescan") rescan = true;
+    }
+    if (root.empty()) {
+        const char* home = std::getenv("HOME");
+        root = sapp::sfzlib::resolveRoot(std::string(home ? home : "") + "/Samples");
+    }
+
+    std::vector<sapp::sfzlib::Entry> entries;
+    if (rescan) {
+        entries = sapp::sfzlib::scan(root);
+        sapp::sfzlib::writeIndex(root, entries);
+    } else {
+        entries = sapp::sfzlib::loadOrScan(root);
+    }
+
+    JsonWriter w;
+    w.beginObject();
+    w.field("ok", true);
+    w.field("root", root);
+    w.field("indexFile", root + "/" + sapp::sfzlib::kIndexFileName);
+    w.field("rescanned", rescan);
+    w.field("count", uint64_t(entries.size()));
+    w.field("note", "choice 0 = \"(keep current)\"; entry i maps to choice i+1; "
+                    "normalized = choice / count; program change: bank-select "
+                    "CC0/CC32 then program p selects entry (bank*128 + p)");
+    w.key("entries");
+    w.beginArray();
+    for (size_t i = 0; i < entries.size(); ++i) {
+        w.beginObject();
+        w.field("entry", uint64_t(i));
+        w.field("choice", uint64_t(i + 1));
+        if (!entries.empty())
+            w.field("normalized", double(i + 1) / double(entries.size()));
+        w.field("label", entries[i].label);
+        w.field("path", entries[i].path);
+        w.endObject();
+    }
+    w.endArray();
+    w.endObject();
+    std::printf("%s\n", w.str().c_str());
+    return 0;
+}
+
 int cmdRender(int argc, char** argv)
 {
     std::string sfzPath, midiPath, outPath;
@@ -553,6 +610,7 @@ int main(int argc, char** argv)
                      "  sapporchestra params\n"
                      "  sapporchestra seats\n"
                      "  sapporchestra scan <library-dir> [--all]\n"
+                     "  sapporchestra sfz-index [--root <dir>] [--rescan]\n"
                      "  sapporchestra render   (--sfz | --diagnostic) --midi <f.mid> --out <f.wav>\n"
                      "                         [--articulation IDX] [--seat NAME] [--param NAME=VALUE ...]\n");
         return 2;
@@ -575,6 +633,7 @@ int main(int argc, char** argv)
     if (cmd == "params") return cmdParams();
     if (cmd == "seats") return cmdSeats();
     if (cmd == "scan") return cmdScan(argc, argv);
+    if (cmd == "sfz-index") return cmdSfzIndex(argc, argv);
     if (cmd == "render") return cmdRender(argc, argv);
 
     std::fprintf(stderr, "unknown command '%s'\n", cmd.c_str());

@@ -15,10 +15,13 @@
 #include <sapp/sounds/InstrumentLoader.h>
 
 #include "../core/OrchestraEngine.h"
+#include "../core/SfzLibrary.h"
 
 namespace sapporch {
 
-class SappOrchestraProcessor : public juce::AudioProcessor
+class SappOrchestraProcessor : public juce::AudioProcessor,
+                               private juce::AudioProcessorValueTreeState::Listener,
+                               private juce::Timer
 {
 public:
     SappOrchestraProcessor();
@@ -55,7 +58,16 @@ public:
     // Async instrument management (message thread). Loads target the
     // SELECTED slot (one slot per MIDI channel; see OrchestraEngine).
     void loadSfzInstrument(const juce::File& sfzFile);
+    void loadSfzInstrumentIntoSlot(const juce::File& sfzFile, int slot);
     void loadDiagnosticInstrument();
+
+    // Host-automatable SFZ selection (sapptune issue #20): the `instrument`
+    // AudioParameterChoice enumerates the library scanned at construction
+    // (choice 0 = "(keep current)", choice k loads sfzLibrary()[k-1]).
+    // The list is FIXED per instance; rescanSfzLibrary() rewrites the index
+    // for the NEXT instantiation.
+    const std::vector<sapp::sfzlib::Entry>& sfzLibrary() const { return sfzLibrary_; }
+    bool rescanSfzLibrary() const;
     juce::String currentInstrumentName() const;
     juce::String currentInstrumentPath() const { return slotPaths_[size_t(selectedSlot_)]; }
     juce::String loadStatus() const;
@@ -88,14 +100,32 @@ public:
     std::function<void()> onInstrumentChanged;  // editor hook (message thread)
 
 private:
-    static juce::AudioProcessorValueTreeState::ParameterLayout makeLayout();
+    static juce::AudioProcessorValueTreeState::ParameterLayout
+        makeLayout(std::vector<sapp::sfzlib::Entry>& outLibrary);
     void pushParamsToEngine();
     void finishLoad(sapp::sounds::LoadResult result, const juce::String& path,
                     uint64_t generation, int slot);
     void loadOrchestraPresetStep(size_t step, uint64_t generation);
     juce::File findLibraryDir(const juce::String& dirName) const;
+
+    // --- `instrument` choice parameter plumbing (sapptune issue #20) --------
+    // parameterChanged may fire on the audio thread: it only stores an index;
+    // the 30 Hz timer applies it on the message thread (SFZ loads must never
+    // run on the audio thread).
+    void parameterChanged(const juce::String& parameterId, float newValue) override;
+    void timerCallback() override;
+    void applyInstrumentChoice(int choiceIndex);
+    void applyProgramSelect(int slot, int entryIndex);
+    // Reflect a loaded path back into the parameter without re-triggering a
+    // load (guarded). "" or an unknown path selects choice 0.
+    void syncInstrumentParameter(const juce::String& path);
+
     int activePreset_ = 0;
     mutable std::map<juce::String, std::pair<juce::File, juce::uint32>> libraryRootCache_;
+
+    // Library snapshot behind the `instrument` choice list. Declared BEFORE
+    // apvts_: makeLayout(sfzLibrary_) fills it while building the layout.
+    std::vector<sapp::sfzlib::Entry> sfzLibrary_;
 
     juce::AudioProcessorValueTreeState apvts_;
     sapp::orchestra::OrchestraEngine engine_;
@@ -137,6 +167,15 @@ private:
     void advanceCcSlews(int numSamples);
 
     std::vector<sapp::sounds::MidiEvent> eventScratch_;
+
+    // `instrument` choice apply state. pendingInstrumentChoice_ targets the
+    // selected slot; pendingProgramSelect_ packs (channel << 16) | entry from
+    // MIDI bank-select + program change. -1 = nothing pending.
+    std::atomic<int> pendingInstrumentChoice_{-1};
+    std::atomic<int> pendingProgramSelect_{-1};
+    std::array<uint8_t, 16> bankMsb_{};   // CC0 per channel (audio thread only)
+    std::array<uint8_t, 16> bankLsb_{};   // CC32 per channel (audio thread only)
+    bool applyingInstrumentChoice_ = false;  // message-thread reentry guard
 
     int selectedSlot_ = 0;
     std::array<juce::String, 16> slotPaths_;   // "" = empty / diagnostic

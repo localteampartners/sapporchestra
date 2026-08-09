@@ -20,6 +20,27 @@
     { "id": "tailLevel",   "label": "Hall Level",        "cc": 91,  "range": [0, 1],     "curve": "linear", "tags": ["space", "reverb"] },
     { "id": "hallSize",    "label": "Hall Size",         "cc": 92,  "range": [0.2, 1.5], "curve": "linear", "tags": ["space"] }
   ],
+  "hostParameters": [
+    {
+      "id": "instrument",
+      "label": "Instrument",
+      "type": "choice",
+      "automatable": true,
+      "dynamicChoices": true,
+      "note": "Host-automatable SFZ selection (issue #20). The choice list is machine-specific — [\"(keep current)\"] followed by every installed SFZ instrument — so the names are NOT listed here; the contract for mapping a name to a value is in instrumentSelect below."
+    }
+  ],
+  "instrumentSelect": {
+    "parameter": "instrument",
+    "indexFile": "<samplesRoot>/.sapp-sfz-index.json",
+    "samplesRoot": "the shared Sapp 'samplesRoot' setting (SampleLibraries.settings, default ~/Samples); env SAPP_SFZ_ROOT overrides. CLI: `sapporchestra sfz-index [--root DIR] [--rescan]` prints the exact entry/choice/normalized table.",
+    "order": "entries[] are sorted case-insensitively by label (ASCII; ties by exact label, then path). The plugin re-sorts on load, so file order always equals choice order — never assume any other ordering.",
+    "nameToIndex": "find the label in entries[] (label = path relative to the root, '/'-separated, without '.sfz'); its 0-based position i selects choice k = i + 1. Choice 0 = '(keep current)'. Normalized value for a host parameter write = k / count (the choice list has count + 1 items).",
+    "programChange": "MIDI bank-select + program change also selects: entry = ((CC0 << 7) | CC32) * 128 + program. Per-MIDI-channel — the entry loads into that channel's slot (16-slot multitimbral).",
+    "state": "the chosen SFZ persists in host state BY ABSOLUTE PATH, not by index (indices shift when the library changes); a missing file at restore falls back to the built-in sound.",
+    "rescan": "the choice list is fixed per plugin instantiation (JUCE cannot grow a choice list live); after adding libraries run `sapporchestra sfz-index --rescan` (or delete the index) — the new list appears on the NEXT instantiation.",
+    "note": "presets[] stays empty on purpose: the 500+ installed SFZ names are machine-specific, so this manifest carries the enumeration contract instead of a hardcoded list."
+  },
   "presets": [],
   "articulations": []
 }

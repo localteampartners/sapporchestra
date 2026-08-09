@@ -2,6 +2,26 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-09 — host-automatable `instrument` parameter (sapptune #20)
+- New `instrument` AudioParameterChoice (appended LAST — all existing
+  automation indices hold): enumerates every installed SFZ instrument from
+  a cached index at `<samplesRoot>/.sapp-sfz-index.json`; selecting choice
+  k loads library entry k-1 into the selected slot (message thread).
+- New core module `SfzLibrary` (no JUCE): scan / index / ordering contract
+  — entries sorted case-insensitively by label; the plugin, CLI and index
+  file always agree on the order. `SAPP_SFZ_ROOT` env overrides the root.
+- MIDI bank-select (CC0/CC32) + program change selects by entry index into
+  the receiving channel's slot: entry = (bank * 128) + program.
+- Chosen SFZ still persists BY PATH in host state (graceful fallback when
+  the file is gone); the parameter re-syncs to the loaded path.
+- CLI: `sapporchestra sfz-index [--root DIR] [--rescan]` prints the
+  entry/choice/normalized table a driving session needs; rescans take
+  effect on the next plugin instantiation (choice lists are fixed live).
+- Manifest: `hostParameters` + `instrumentSelect` contract in
+  sapptune/sapplink/manifests/sapporchestra.json (mirrored in tests/data).
+- Verified: 30 unit tests green (new [sfzlib] cases incl. sort-order and
+  index round-trip), headless `--sfztest` (11 checks), auval PASS.
+
 ## 2026-08-07 — v0.7.0
 - In-plugin UPDATE button: the editor checks the GitHub latest release
   (throttled to once a day; click the version label to check on demand).
