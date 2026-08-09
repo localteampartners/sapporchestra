@@ -56,3 +56,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { gh release create "$env:TAG" --generate-notes }
           $ErrorActionPreference = "Stop"
           gh release upload "$env:TAG" "SappOrchestra-$env:TAG-Windows-x64.zip" --clobber
+
+  # THE GUARD. sapptune v0.28.0 once shipped with no plugin: the build passed,
+  # a later step failed, the upload was skipped, and the release looked green.
+  # A tag must never exist without its binary.
+  verify-release-assets:
+    needs: windows
+    if: always() && (inputs.tag != '' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: The release must carry its build
+        run: |
+          assets=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name] | join(" ")' 2>/dev/null || echo "")
+          echo "assets on $TAG: ${assets:-<none>}"
+          case "$assets" in
+            *Windows-x64*) echo "OK - the build is attached." ;;
+            *) echo "::error::$TAG has no Windows-x64 asset - the build or upload did not complete."
+               exit 1 ;;
+          esac
