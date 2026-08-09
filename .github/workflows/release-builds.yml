@@ -69,12 +69,19 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: The release must carry its build
-        shell: bash
+        shell: powershell
         run: |
-          assets=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name] | join(" ")' 2>/dev/null || echo "")
-          echo "assets on $TAG: ${assets:-<none>}"
-          case "$assets" in
-            *Windows-x64*) echo "OK - the build is attached." ;;
-            *) echo "::error::$TAG has no Windows-x64 asset - the build or upload did not complete."
-               exit 1 ;;
-          esac
+          # bash on the self-hosted runner resolves to the WSL stub (no distro,
+          # instant exit 1, script never runs) - PowerShell is the one shell
+          # proven on that machine.
+          $ErrorActionPreference = "Continue"
+          $assets = gh release view "$env:TAG" -R "$env:GITHUB_REPOSITORY" --json assets --jq '[.assets[].name] | join(\" \")' 2>$null
+          $ErrorActionPreference = "Stop"
+          if (-not $assets) { $assets = "<none>" }
+          Write-Output "assets on $($env:TAG): $assets"
+          if ("$assets" -like "*Windows-x64*") {
+            Write-Output "OK - the build is attached."
+          } else {
+            Write-Output "::error::$($env:TAG) has no Windows-x64 asset - the build or upload did not complete. Re-run with: gh workflow run -f tag=$($env:TAG)"
+            exit 1
+          }
