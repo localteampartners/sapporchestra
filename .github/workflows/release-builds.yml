@@ -63,12 +63,13 @@ jobs:
   verify-release-assets:
     needs: windows
     if: always() && (inputs.tag != '' || startsWith(github.ref, 'refs/tags/'))
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.WINDOWS_RUNNER || 'windows-latest' }}
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: The release must carry its build
+        shell: bash
         run: |
           assets=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name] | join(" ")' 2>/dev/null || echo "")
           echo "assets on $TAG: ${assets:-<none>}"
