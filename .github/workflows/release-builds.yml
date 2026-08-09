@@ -24,6 +24,30 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - name: Version guard (CMake version must match the tag)
+        shell: powershell
+        run: |
+          # The in-plugin updater compares the BUILT version against the latest
+          # GitHub tag. If CMakeLists.txt lags the tag, every install re-offers
+          # the same update forever. Fail the release before that ships.
+          $tag = if ($env:TAG) { $env:TAG } else { $env:GITHUB_REF_NAME }
+          if ($tag -notmatch '^v[0-9]') {
+            Write-Host "not a version tag ($tag) - skipping version guard"
+            exit 0
+          }
+          $expected = $tag -replace '^v', ''
+          $m = [regex]::Match((Get-Content CMakeLists.txt -Raw),
+                              'project\s*\(\s*\S+\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)')
+          if (-not $m.Success) {
+            Write-Host "::error::could not read project(... VERSION ...) from CMakeLists.txt"
+            exit 1
+          }
+          $actual = $m.Groups[1].Value
+          if ($actual -ne $expected) {
+            Write-Host "::error::CMake version $actual does not match release tag $tag. Set project(... VERSION $expected) in CMakeLists.txt, commit, then move the tag onto that commit."
+            exit 1
+          }
+          Write-Host "OK: CMake version $actual matches tag $tag"
       - name: Configure
         run: cmake -S . -B build -DSAPPORCHESTRA_BUILD_TESTS=OFF
       - name: Build
