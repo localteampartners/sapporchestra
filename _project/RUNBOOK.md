@@ -76,12 +76,21 @@ sapporchestra-headless selftest        # the #1 + #2 regression suite
    in-plugin updater compares this (JucePlugin_VersionString) against the
    latest GitHub tag, so the two MUST stay in sync.
 2. Update _project/CHANGELOG.md, commit, push.
-3. `gh release create vX.Y.Z <local-arm64-zip> --title ... --notes ...`
+3. `gh release create vX.Y.Z --title ... --notes ...` — no local artifact:
+   WINDOWS ONLY (the macOS jobs were removed 2026-08-08, and macOS builds are
+   local verification only).
 
 Creating the release pushes the tag, which triggers
-`.github/workflows/release-builds.yml`: macOS-universal and Windows-x64 zips
-(VST3 + Standalone + CLI + INSTALL.txt) build on CI and attach to the same
-release. Manual re-run: Actions → release-builds → Run workflow with the tag.
+`.github/workflows/release-builds.yml`: one Windows-x64 zip (VST3 +
+Standalone + `sapporchestra.exe` + `sapporchestra-headless.exe` +
+INSTALL.txt) builds on the self-hosted runner and attaches to the release.
+A version guard fails the run if CMakeLists lags the tag, and packaging fails
+if either headless binary is missing. Manual re-run: Actions → release-builds
+→ Run workflow with the tag.
+
+**Do not tag while the build host is down.** A tag with no binary is worse
+than no tag (sapptune v0.28.0). Commit and push the version bump; tag once
+the self-hosted runner answers.
 
 ## Samples
 
