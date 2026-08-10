@@ -7,7 +7,7 @@
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # sibling ../sappsounds required
 cmake --build build -j8                           # Standalone/VST3/AU/CLI/tests
-./build/SappOrchestraTests                        # 37 cases
+./build/SappOrchestraTests                        # 38 cases
 (cd build && ctest)                               # unit + headless station suite
 ./verify.sh                                       # full loop, PLUGIN INCLUDED
 ```

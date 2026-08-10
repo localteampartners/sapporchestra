@@ -1,0 +1,4 @@
+// No literal <region> in this file - every region arrives through #include.
+// Karoryfer sneakybass and Sonatina keyswitch sets ("All Brass KS") are
+// built exactly like this; requiring a literal <region> silently drops them.
+#include "includes/regions.sfz"

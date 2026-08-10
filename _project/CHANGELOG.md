@@ -60,7 +60,10 @@ random detune, slow gain drift, vintage hiss) are driven by `dnaAmount`, so
 and round-robin variation (library-supplied). Default 0 is byte-identical to
 the previous behavior. CLI: `--param clean=…`.
 
-- Tests: 37 unit cases (was 30) + the headless selftest (16 checks).
+- Tests: 38 unit cases (was 30) + the headless selftest (16 checks),
+  including the station's hard-won indexing rules: a file whose regions
+  arrive only through `#include` (sneakybass, "All Brass KS") is playable,
+  and the index is UTF-8 with no BOM.
 
 ## 2026-08-09 — host-automatable `instrument` parameter (sapptune #20)
 - New `instrument` AudioParameterChoice (appended LAST — all existing

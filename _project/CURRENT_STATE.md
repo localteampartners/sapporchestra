@@ -25,7 +25,7 @@
 - Host state save/restore (APVTS v1 + sfzPath, diagnostic fallback)
 - Agent CLI (`sapporchestra`): inspect / validate / params / render (JSON,
   deterministic seeds)
-- Tests: 37 cases green (engine policy, room, deterministic renders,
+- Tests: 38 cases green (engine policy, room, deterministic renders,
   SappLink drift guard, SFZ library index/order, `clean` contract) plus the
   headless station selftest (16 checks) under CTest
 - Demo pipeline: scripts/make_demo.py + scripts/make_sonatina_demo.py

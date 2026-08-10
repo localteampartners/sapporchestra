@@ -1,0 +1,2 @@
+// A fragment: real regions live here, and this file must NOT be listed.
+<region> sample=sine.wav lokey=0 hikey=127 pitch_keycenter=60

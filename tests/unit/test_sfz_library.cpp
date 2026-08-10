@@ -117,6 +117,19 @@ TEST_CASE("resolveRoot prefers the environment override", "[sfzlib]")
 // be buildable and refreshable with nobody there. These cover the rules the
 // station learned the hard way while indexing 2,760 .sfz files.
 
+TEST_CASE("a file whose regions arrive only through #include is playable",
+          "[sfzlib][headless]")
+{
+    // Learned on the station box (issue #1): all six Karoryfer sneakybass
+    // programs and Sonatina's keyswitch/ensemble sets ("All Brass KS") carry
+    // no literal <region> — the regions come in through #include. Requiring a
+    // literal <region> would silently drop them from the choice list. The
+    // fragment they include must still stay out of the list.
+    const auto entries = scan(std::string(SAPPORCH_TEST_DATA_DIR) + "/sfz-include-only");
+    REQUIRE(entries.size() == 1);
+    REQUIRE(entries[0].label == "All Brass KS");
+}
+
 TEST_CASE("the index is written UTF-8 with no BOM", "[sfzlib][headless]")
 {
     // Set-Content -Encoding UTF8 on Windows PowerShell emits a BOM and every
