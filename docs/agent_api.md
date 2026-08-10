@@ -91,6 +91,7 @@ MIDI, `cc` (+`ccCurve`, or `ccNative` for engine-handled controllers).
 | hall_decay | hallDecay | 0.3–12 | 2.6 | 15 (log) | T60 seconds |
 | hall_damping | hallDamping | 0–1 | 0.45 | 19 | HF damping |
 | dna_amount | dnaAmount | 0–1 | 0.18 | 26 | ensemble detune/drift amount |
+| clean | clean | 0–1 | 0 | 3 | scales every modeled imperfection by (1 − clean); 0 = as designed, 1 = none |
 | legato | legato | 0–1 | 1.0 | 68 | slurred lines: attack suppression + transition fades (chord-safe) |
 | master_gain_db | masterGain | −24–12 | 0 | 7 | output gain |
 | dna_mode | dnaMode | enum | 1 | — | 0 clean · 1 cohesive · 2 vintage |
@@ -162,6 +163,22 @@ parameters identical preserves the one-room illusion.
 [scripts/make_sonatina_demo.py](../scripts/make_sonatina_demo.py) renders a
 full 7-section piece with the real Sonatina Symphonic Orchestra (seated
 sections, shared hall, CC1 phrasing).
+
+## Headless plugin control (no editor, no message loop)
+
+The plugin itself is drivable unattended — this is what a radio station does:
+
+| Need | How |
+|---|---|
+| Enumerate installed instruments | `sapporchestra sfz-index [--root DIR]` — prints entry → choice → normalized |
+| Rebuild a stale index | `sapporchestra sfz-index --rescan`, `sapporchestra-headless index --rescan`, or `SAPP_SFZ_RESCAN=1` on the host process |
+| Select an instrument | write the `instrument` host parameter by display name (`instrumentSelect` in the SappLink manifest), or MIDI bank-select + program change |
+| Know the selection landed | poll the read-only `libraryReady` parameter (0 while a load owns the window, 1 when installed) |
+| See what actually sounded | grep the host log for `SappOrchestra-audio-source:`; `SAPP_ORCHESTRA_LOG=<file>` captures it |
+| Reproduce a station render | `sapporchestra-headless render --instrument LABEL --out A.wav` |
+
+None of this needs the host to pump a JUCE message loop; instrument loading
+runs on the plugin's own loader thread.
 
 ## Lower-level engine tools
 

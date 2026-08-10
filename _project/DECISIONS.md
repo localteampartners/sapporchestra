@@ -2,6 +2,33 @@
 
 <!-- UPDATE WHEN: a non-obvious technical choice is made -->
 
+## 2026-08-09 — Instrument loading never touches the JUCE message thread
+A VST3 plugin inside a non-JUCE headless host has a MessageManager that
+nothing pumps, so `juce::Timer` callbacks and `MessageManager::callAsync`
+never run there. Anything routed through them is accepted and silently
+dropped (issue #2). The processor therefore owns a loader thread: parameter
+selections, program changes, state restores and factory presets all become
+queued `LoadJob`s, and the install happens on that thread. The 30 Hz timer is
+now an editor convenience — if it never fires, nothing about the sound
+changes. Rule for this repo: **a load path that only works when the host
+pumps a message loop is a bug, not a design.**
+
+## 2026-08-09 — `libraryReady` lives outside the APVTS
+It is a status readout, not part of the sound. Inside the APVTS,
+`copyState`/`replaceState` would save and restore it, and a session restored
+with a stale "ready" would lie to a headless host at the worst moment. Same
+call sappkeys made in its v0.8.0.
+
+## 2026-08-09 — `clean` scales `dnaAmount`, and nothing else
+Audited every source of modeled imperfection in the engine. Analog DNA is the
+only one, and its three expressions (per-note random detune, slow gain drift,
+vintage hiss) all read `dnaAmount`, so the contract is one helper,
+`effectiveDnaAmount()`, applied at each use site. Hall modulation is NOT
+scaled: it is an FDN device that stops the tail ringing metallically — room
+design, not wear. Round-robin and velocity variation are NOT scaled: they
+come from the sample library, not from us. Default 0 keeps renders
+byte-identical to pre-`clean` builds, which the test suite asserts.
+
 ## 2026-08-06 — Product/engine split before code
 Generic sampler code lives in the sibling SappSounds repo (`Sapp::Sounds`);
 this repo only holds orchestra policy, JUCE wrappers, UI, CLI. No SappAudio

@@ -14,6 +14,7 @@ and `src/core/SappLinkCCMap.cpp` together.
 
 | CC | Parameter ID | Range (engineering) | Curve |
 |---|---|---|---|
+| 3 | `clean` | 0 … 1 | linear |
 | 7 | `masterGain` | −24 … 12 dB | linear |
 | 14 | `earlyLevel` | 0 … 1 | linear |
 | 15 | `hallDecay` | 0.3 … 12 s | log |
@@ -28,6 +29,15 @@ and `src/core/SappLinkCCMap.cpp` together.
 
 CC 0→127 maps onto the range through the curve (log = exponential
 interpolation between endpoints; linear = lerp).
+
+**CC 3 = `clean` is reserved suite-wide** (sapptune #30): every Sapp
+instrument scales its modeled imperfections by (1 − clean). In SappOrchestra
+that is Analog DNA — per-note random detune, slow gain drift and vintage hiss
+— all driven by `dnaAmount`, so `clean` scales that one value. `clean`
+defaults to 0, which is byte-for-byte the behavior that shipped before it
+existed. Deliberately NOT scaled: hall modulation (an FDN device that stops
+the tail ringing metallically — room design, not wear) and round-robin /
+velocity variation (which comes from the sample library, not from us).
 
 **Channel scope (multitimbral):** CC 1/11 (dynamics/expression) and
 CC 16/17/18 (stage position/depth/width) are PER-CHANNEL — they shape only

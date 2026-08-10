@@ -44,8 +44,30 @@ cmake --build build -j8          # Standalone, VST3, AU, CLI, tests
 ```
 
 The plugin copies itself into `~/Library/Audio/Plug-Ins` on macOS after a
-build. `./verify.sh` runs the fast loop. (JUCE 8.0.15 and Catch2 are fetched
-automatically; pass `-DSAPPORCHESTRA_BUILD_PLUGIN=OFF` for a core-only build.)
+build. `./verify.sh` runs the full loop, plugin target included — don't verify
+with `-DSAPPORCHESTRA_BUILD_PLUGIN=OFF`, the headless regression needs the real
+processor. (JUCE 8.0.15 and Catch2 are fetched automatically.)
+
+## Headless / unattended use
+
+No editor, no user, no message loop — the way a radio station runs it:
+
+```bash
+# Rebuild the SFZ index after adding libraries (the GUI rescan can't run here)
+SAPP_SFZ_RESCAN=1 <your host command>              # plugin rebuilds it itself
+./build/sapporchestra-headless index --rescan --root /path/to/Samples
+./build/sapporchestra sfz-index --rescan --root /path/to/Samples
+
+# Drive a selection the way a host does, and hear the result
+./build/sapporchestra-headless render --instrument "Sonatina .../1st Violins Sustain" \
+    --root /path/to/Samples --out A.wav
+```
+
+Select instruments with the `instrument` host parameter (by display name),
+poll the read-only `libraryReady` parameter to know when the load landed, and
+grep the host log for `SappOrchestra-audio-source:` lines — they name the
+instrument that actually sounded. Details in
+[_project/RUNBOOK.md](_project/RUNBOOK.md).
 
 ## The agent CLI
 

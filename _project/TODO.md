@@ -15,6 +15,12 @@
 
 ## Next (make it top of the line)
 
+- [x] Headless `instrument` selection actually loads the SFZ (issue #2)
+- [x] Headless SFZ index rebuild: `SAPP_SFZ_RESCAN=1` + shipped CLI (issue #1)
+- [x] SappLink `clean` on CC 3 (sapptune #30)
+- [ ] Note-on gate (sappkeys' StartupGate): today a render started before the
+      selection lands hears the built-in default for that render
+- [ ] `clean` control in the editor (host parameter + CC 3 only so far)
 - [ ] DAW validation: Logic auval, Reaper, Live; pluginval in CI
 - [ ] In-plugin library browser fed by the scanner (search, categories,
       favorites, recent, RAM estimate before load)

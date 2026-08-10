@@ -2,6 +2,66 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-09 — v0.9.0: the `instrument` parameter actually loads (#2), headless index (#1), `clean`
+
+**Fixed (#2) — the `instrument` parameter was accepted and then did nothing
+in a headless host.** Two independent faults, either one enough on its own:
+
+1. *Every* instrument install was delivered on the JUCE message thread — the
+   selection was applied from a `juce::Timer` callback and the loaded
+   instrument was installed from `MessageManager::callAsync`. A VST3 plugin
+   inside a non-JUCE headless host has a MessageManager that nobody pumps, so
+   neither ever ran: the parameter write landed in `pendingInstrumentChoice_`
+   and stayed there. No error, no log, default sound. Instrument loading now
+   runs on a loader thread the processor owns, so it works with no GUI, no
+   user and no message loop. The 30 Hz timer survives only as an editor hook.
+2. `finishLoad` computed its generation guard and never returned on a miss,
+   so the slow construction-time diagnostic could land *after* a real SFZ and
+   overwrite it — and then reset `instrument` to "(keep current)". It returns
+   now, and the construction diagnostic never writes the parameter at all.
+
+Also fixed by the same rework: destroying an instance with a load in flight
+left `callAsync` closures capturing `this`, which crashed when a later pump
+ran them. The loader thread is joined in the destructor.
+
+- **`libraryReady` host parameter** (read-only, non-automatable, appended
+  last, outside the APVTS so host state never saves a stale "ready"): 0 the
+  instant a selection is written, 1 when that instrument is installed. Lets a
+  headless host poll instead of using a blind settle window. Mirrors sappkeys
+  v0.8.0.
+- **`SappOrchestra-audio-source:` log line** names the instrument that
+  produced a voice batch started from silence (plus `SappOrchestra-build:` at
+  construction and `SappOrchestra-instrument:` per install). This is how the
+  fault class becomes visible in the wild instead of only audible. Set
+  `SAPP_ORCHESTRA_LOG=<file>` to capture them; on Windows they also go to
+  stderr, where the JUCE logger alone would not be greppable.
+
+**Fixed (#1) — headless SFZ index rebuild.** `SAPP_SFZ_RESCAN=1` rebuilds
+`<root>/.sapp-sfz-index.json` at plugin construction, before the choice list
+is built. The release zip now also ships `sapporchestra.exe` (`sfz-index
+--rescan`) and the new `sapporchestra-headless.exe` (`index --rescan`), and
+the packaging step FAILS if either binary is missing. A missing index is
+still scanned and written automatically at first instantiation. Exact
+invocations in _project/RUNBOOK.md.
+
+- **New `sapporchestra-headless` target** (cross-platform console app): the
+  station harness. `selftest` is the #1/#2 regression — it renders the same
+  MIDI with and without the `instrument` parameter set, with no dispatch
+  loop, and asserts the audio DIFFERS and that the named instrument is what
+  sounded. Registered with CTest; `verify.sh` now builds the plugin target
+  and runs it (sappkeys#1: tests green while the installed binary was stale).
+
+**Added — `clean` (sapptune #30, suite-wide).** New host parameter `clean`
+("Clean", 0..1, default 0, CC 3 reserved), appended after `instrument`.
+Scales every modeled-imperfection source by (1 − clean). Audited: Analog DNA
+is the only such source here, and all three of its expressions (per-note
+random detune, slow gain drift, vintage hiss) are driven by `dnaAmount`, so
+`clean` scales that. Not scaled: hall modulation (FDN anti-metallic device)
+and round-robin variation (library-supplied). Default 0 is byte-identical to
+the previous behavior. CLI: `--param clean=…`.
+
+- Tests: 37 unit cases (was 30) + the headless selftest (16 checks).
+
 ## 2026-08-09 — host-automatable `instrument` parameter (sapptune #20)
 - New `instrument` AudioParameterChoice (appended LAST — all existing
   automation indices hold): enumerates every installed SFZ instrument from
