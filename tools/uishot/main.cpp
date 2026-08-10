@@ -63,11 +63,14 @@ public:
         pumpUntil([this] { return !processor->isLoading(); }, 8000);  // diagnostic load
 
         // --- A. parameter table: existing order intact, `instrument` last --
+        // `clean` (sapptune #30) and `libraryReady` (sapporchestra #2) are
+        // appended AFTER `instrument`, so no pre-existing automation index
+        // moves. libraryReady lives outside the APVTS and therefore last.
         const char* expectedIds[] = {"dynamics", "expression", "stageX", "stageDepth",
                                      "width", "earlyLevel", "tailLevel", "hallSize",
                                      "hallDecay", "hallDamping", "legato", "dnaMode",
                                      "dnaAmount", "masterGain", "limiter", "quality",
-                                     "articulation", "instrument"};
+                                     "articulation", "instrument", "clean", "libraryReady"};
         const auto& params = processor->getParameters();
         bool tableOk = params.size() == int(std::size(expectedIds));
         for (int i = 0; tableOk && i < params.size(); ++i) {
@@ -77,7 +80,7 @@ public:
                 std::printf("  param %d is %s, expected %s\n", i,
                             withId ? withId->paramID.toRawUTF8() : "?", expectedIds[i]);
         }
-        sfzCheck(tableOk, "17 pre-existing params unchanged, `instrument` appended last");
+        sfzCheck(tableOk, "17 pre-existing params unchanged; instrument/clean/libraryReady appended");
 
         // --- B. choice list mirrors the sorted library ---------------------
         auto* choice = dynamic_cast<juce::AudioParameterChoice*>(

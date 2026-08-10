@@ -211,7 +211,7 @@ void OrchestraEngine::applyShared(const OrchestraParams& p) noexcept
             slot->sampler.setInterpolationQuality(p.quality == 0 ? 0 : 1);
     }
     const float cents = p.dnaMode == 0 ? 0.0f
-                        : p.dnaAmount * (p.dnaMode == 2 ? 9.0f : 5.0f);
+                        : effectiveDnaAmount(p) * (p.dnaMode == 2 ? 9.0f : 5.0f);
     if (cents != lastDnaCents_) {
         lastDnaCents_ = cents;
         for (auto& slot : slots_) slot->sampler.setRandomTuneCents(cents);
@@ -412,10 +412,12 @@ void OrchestraEngine::process(const MidiEvent* events, int eventCount,
 
     const float smSlow = smoothCoef(sampleRate_, 40.0f);
     const float masterTarget = dbToGain(p.masterGainDb);
-    const bool dna = p.dnaMode != 0 && p.dnaAmount > 0.0f;
-    const float driftDepth = dna ? 0.015f * p.dnaAmount : 0.0f;
+    // `clean` scales Analog DNA away: drift and hiss are modeled imperfections.
+    const float dnaAmount = effectiveDnaAmount(p);
+    const bool dna = p.dnaMode != 0 && dnaAmount > 0.0f;
+    const float driftDepth = dna ? 0.015f * dnaAmount : 0.0f;
     const float driftInc = float(2.0 * 3.14159265 * 0.13 / sampleRate_);
-    const float noiseAmp = (p.dnaMode == 2) ? 3.0e-4f * p.dnaAmount : 0.0f;
+    const float noiseAmp = (p.dnaMode == 2) ? 3.0e-4f * dnaAmount : 0.0f;
 
     for (int f = 0; f < n; ++f) {
         smEarly_ += smSlow * (1.0f - smEarly_);  // ER pre-scaled per slot

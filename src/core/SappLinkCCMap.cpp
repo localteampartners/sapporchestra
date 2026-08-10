@@ -11,6 +11,9 @@ namespace sapp::orchestra::sapplink {
 const std::array<CCMapping, kNumMappings>& mappings()
 {
     static const std::array<CCMapping, kNumMappings> table { {
+        // CC 3 is RESERVED suite-wide for `clean` (sapptune #30): every Sapp
+        // instrument scales its modeled imperfections by (1 - clean).
+        { 3,  "clean",       &OrchestraParams::clean,        0.0f,   1.0f,  Curve::Linear },
         { 7,  "masterGain",  &OrchestraParams::masterGainDb, -24.0f, 12.0f, Curve::Linear },
         { 14, "earlyLevel",  &OrchestraParams::earlyLevel,   0.0f,   1.0f,  Curve::Linear },
         { 15, "hallDecay",   &OrchestraParams::hallDecay,    0.3f,   12.0f, Curve::Log },

@@ -1,10 +1,17 @@
 #include "PluginProcessor.h"
 
+#include <chrono>
+#include <cstdio>
+
 #include <sapp/sounds/DiagnosticInstrument.h>
 
 #include "../core/SappLinkCCMap.h"
 #include "PluginEditor.h"
 #include "SappSettings.h"
+
+#ifndef SAPPORCH_VERSION
+#define SAPPORCH_VERSION "0.0.0"
+#endif
 
 namespace sapporch {
 
@@ -13,6 +20,49 @@ using sapp::sounds::MidiEvent;
 
 namespace {
 constexpr int kMaxArticulations = 16;
+
+bool envFlagSet(const char* name)
+{
+    const char* value = std::getenv(name);
+    return value != nullptr && value[0] != 0 && juce::String(value) != "0";
+}
+} // namespace
+
+// ------------------------------------------------- headless entry points --
+
+juce::String samplesRootForLibrary()
+{
+    return juce::String(sapp::sfzlib::resolveRoot(
+        settings::samplesRoot().getFullPathName().toStdString()));
+}
+
+juce::String indexFilePath()
+{
+    return juce::File(samplesRootForLibrary())
+        .getChildFile(sapp::sfzlib::kIndexFileName)
+        .getFullPathName();
+}
+
+int rebuildSfzIndex()
+{
+    const auto root = samplesRootForLibrary().toStdString();
+    const auto entries = sapp::sfzlib::scan(root);
+    if (!sapp::sfzlib::writeIndex(root, entries)) return -1;
+    return int(entries.size());
+}
+
+void logLine(const juce::String& message)
+{
+    juce::Logger::writeToLog(message);
+#if JUCE_WINDOWS
+    // JUCE's fallback logger is OutputDebugString on Windows — invisible to a
+    // station box redirecting the host's output. stderr is what it greps.
+    std::fputs((message + "\n").toRawUTF8(), stderr);
+    std::fflush(stderr);
+#endif
+    if (const char* path = std::getenv(kLogEnvVar))
+        if (path[0] != 0)
+            juce::File(juce::String::fromUTF8(path)).appendText(message + "\n");
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout
@@ -64,8 +114,19 @@ SappOrchestraProcessor::makeLayout(std::vector<sapp::sfzlib::Entry>& outLibrary)
     // index holds. Choice 0 keeps whatever is loaded; choice k loads library
     // entry k-1 (case-insensitive sort order — see SfzLibrary.h). The list is
     // fixed for this instance; a rescan shows up on the next instantiation.
-    outLibrary = sapp::sfzlib::loadOrScan(
-        sapp::sfzlib::resolveRoot(settings::samplesRoot().getFullPathName().toStdString()));
+    //
+    // SAPP_SFZ_RESCAN=1 rebuilds the index first (issue #1): the editor's
+    // rescan can never run on a station box, so the unattended path is an
+    // environment variable read right here, before the list is built.
+    const auto root = samplesRootForLibrary().toStdString();
+    if (envFlagSet(kRescanEnvVar)) {
+        outLibrary = sapp::sfzlib::scan(root);
+        sapp::sfzlib::writeIndex(root, outLibrary);
+        logLine("SappOrchestra-sfz-index: rescan=1 root=\"" + juce::String(root)
+                + "\" entries=" + juce::String(int(outLibrary.size())));
+    } else {
+        outLibrary = sapp::sfzlib::loadOrScan(root);
+    }
     juce::StringArray instrumentChoices;
     instrumentChoices.add("(keep current)");
     for (const auto& entry : outLibrary)
@@ -74,6 +135,11 @@ SappOrchestraProcessor::makeLayout(std::vector<sapp::sfzlib::Entry>& outLibrary)
         instrumentChoices.add("(no SFZ library found)");  // avoid a 1-step param
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{"instrument", 1}, "Instrument", instrumentChoices, 0));
+
+    // APPENDED LAST AGAIN (sapptune #30): the suite-wide `clean` control.
+    // 0 = every modeled imperfection exactly as today (backwards compatible).
+    layout.add(std::make_unique<P>(juce::ParameterID{"clean", 1}, "Clean",
+                                   Range{0.0f, 1.0f, 0.001f}, 0.0f));
     return layout;
 }
 
@@ -100,6 +166,7 @@ SappOrchestraProcessor::SappOrchestraProcessor()
     pLimiter_ = raw("limiter");
     pQuality_ = raw("quality");
     pArticulation_ = raw("articulation");
+    pClean_ = raw("clean");
 
     eventScratch_.reserve(512);
 
@@ -109,11 +176,33 @@ SappOrchestraProcessor::SappOrchestraProcessor()
     for (size_t i = 0; i < table.size(); ++i)
         ccSlews_[i].parameter = apvts_.getParameter(table[i].paramId);
 
+    // Readiness readout (sapporchestra #2): a headless host polls this instead
+    // of guessing a settle window. Outside the APVTS on purpose — see the
+    // declaration. Appended last, after every APVTS parameter.
+    libraryReady_ = new juce::AudioParameterBool(
+        juce::ParameterID{"libraryReady", 1}, "Library Ready", false,
+        juce::AudioParameterBoolAttributes().withAutomatable(false));
+    addParameter(libraryReady_);
+
     // Host-automatable SFZ selection: the callback may fire on the audio
-    // thread, so it only stores an index; the timer applies it on the
-    // message thread.
+    // thread, so it only stores an index; the LOADER THREAD applies it.
     apvts_.addParameterListener("instrument", this);
+
+    // The loader thread owns every instrument install. Started before the
+    // construction diagnostic is queued so nothing waits on the host.
+    loaderThread_ = std::thread([this] { loaderLoop(); });
+
+    // The 30 Hz timer is an editor convenience only (it fires the
+    // onInstrumentChanged hook on the message thread). NOTHING about loading
+    // depends on it — see the LoadJob comment in the header.
     startTimerHz(30);
+
+    // Which build did the host just load, and what is it enumerating? One
+    // line at construction turns "the wrong sound came out" from guesswork
+    // into a log grep (sappkeys #1 taught this the hard way).
+    logLine("SappOrchestra-build: version=" SAPPORCH_VERSION
+            " root=\"" + samplesRootForLibrary()
+            + "\" instruments=" + juce::String(int(sfzLibrary_.size())));
 
     loadDiagnosticInstrument();
 }
@@ -123,36 +212,125 @@ SappOrchestraProcessor::SappOrchestraProcessor()
 void SappOrchestraProcessor::parameterChanged(const juce::String& parameterId,
                                               float newValue)
 {
-    if (parameterId != juce::StringRef("instrument") || applyingInstrumentChoice_)
+    if (parameterId != juce::StringRef("instrument")
+        || applyingInstrumentChoice_.load(std::memory_order_acquire))
         return;
     pendingInstrumentChoice_.store(int(newValue + 0.5f));
+    // Not ready from the instant the host asks for a different instrument —
+    // otherwise a host that writes the parameter and immediately polls would
+    // read the PREVIOUS instrument's "ready" and render too early.
+    if (libraryReady_ != nullptr && libraryReady_->get())
+        *libraryReady_ = false;
+    queueCv_.notify_all();
 }
 
 void SappOrchestraProcessor::timerCallback()
 {
-    // MIDI program select first, then an explicit parameter move: when both
-    // land in the same tick the parameter (the deliberate host move) wins.
-    const int programSelect = pendingProgramSelect_.exchange(-1);
-    if (programSelect >= 0)
-        applyProgramSelect(programSelect >> 16, programSelect & 0xffff);
-    const int choice = pendingInstrumentChoice_.exchange(-1);
-    if (choice >= 0)
-        applyInstrumentChoice(choice);
+    // Editor convenience ONLY. Loading does not run here (see LoadJob).
+    if (instrumentChangedFlag_.exchange(false) && onInstrumentChanged)
+        onInstrumentChanged();
+}
+
+// The loader thread: the one place instruments are installed. Runs whether or
+// not the host has a message loop, which is the entire point (issue #2).
+void SappOrchestraProcessor::loaderLoop()
+{
+    while (!loaderStop_.load(std::memory_order_acquire)) {
+        // MIDI program select first, then an explicit parameter move: when
+        // both land in the same tick the parameter (the deliberate host move)
+        // wins because it is enqueued last.
+        const int programSelect = pendingProgramSelect_.exchange(-1);
+        if (programSelect >= 0)
+            applyProgramSelect(programSelect >> 16, programSelect & 0xffff);
+        const int choice = pendingInstrumentChoice_.exchange(-1);
+        if (choice >= 0)
+            applyInstrumentChoice(choice);
+
+        LoadJob job;
+        bool haveJob = false;
+        {
+            std::lock_guard<std::mutex> lock(queueMutex_);
+            if (!loadQueue_.empty()) {
+                job = std::move(loadQueue_.front());
+                loadQueue_.pop_front();
+                haveJob = true;
+            }
+        }
+        if (haveJob) {
+            performLoad(std::move(job));
+            jobsOutstanding_.fetch_sub(1);
+            loading_.store(jobsOutstanding_.load() > 0);
+            publishReadiness();
+            continue;
+        }
+
+        loading_.store(false);
+        publishReadiness();
+        logAudioSourceIfNeeded();
+        std::unique_lock<std::mutex> lock(queueMutex_);
+        queueCv_.wait_for(lock, std::chrono::milliseconds(5));
+    }
+}
+
+void SappOrchestraProcessor::enqueueLoad(LoadJob job)
+{
+    jobsOutstanding_.fetch_add(1);
+    loading_.store(true);
+    if (libraryReady_ != nullptr && libraryReady_->get())
+        *libraryReady_ = false;
+    {
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        loadQueue_.push_back(std::move(job));
+    }
+    queueCv_.notify_all();
+}
+
+void SappOrchestraProcessor::performLoad(LoadJob job)
+{
+    if (job.kind != LoadJob::Kind::PresetStep
+        && job.generation != slotGeneration_[size_t(job.slot)].load())
+        return;  // a newer load for this slot was queued before we started
+
+    if (job.kind == LoadJob::Kind::Diagnostic) {
+        sapp::sounds::LoadResult result;
+        result.instrument = sapp::sounds::makeDiagnosticInstrument();
+        result.ok = result.instrument != nullptr;
+        finishLoad(std::move(result), {}, job);
+        return;
+    }
+
+    if (job.kind == LoadJob::Kind::PresetStep) {
+        performPresetStep(job);
+        return;
+    }
+
+    sapp::sounds::InstrumentLoader loader;
+    auto result = loader.loadSfz(job.path.toStdString());
+    finishLoad(std::move(result), job.path, job);
 }
 
 void SappOrchestraProcessor::applyInstrumentChoice(int choiceIndex)
 {
-    if (choiceIndex <= 0 || choiceIndex > int(sfzLibrary_.size()))
-        return;  // "(keep current)" / placeholder / out of range
+    if (choiceIndex <= 0 || choiceIndex > int(sfzLibrary_.size())) {
+        // "(keep current)" / placeholder / out of range. Nothing to load, but
+        // a host that asked for it is entitled to a readiness edge.
+        publishReadiness();
+        return;
+    }
     const auto& entry = sfzLibrary_[size_t(choiceIndex - 1)];
     const juce::File file(juce::String::fromUTF8(entry.path.c_str()));
     if (file.getFullPathName() == currentInstrumentPath())
         return;  // already loaded in the selected slot
     if (!file.existsAsFile()) {
         // Graceful miss: the library changed since the index was written.
-        const juce::ScopedLock sl(loadLock_);
-        loadStatus_ = "Missing: " + file.getFullPathName();
-        if (onInstrumentChanged) onInstrumentChanged();
+        {
+            const juce::ScopedLock sl(loadLock_);
+            loadStatus_ = "Missing: " + file.getFullPathName();
+        }
+        logLine("SappOrchestra-instrument: MISSING choice=" + juce::String(choiceIndex)
+                + " path=\"" + file.getFullPathName() + "\" (index is stale - run "
+                  "`sapporchestra sfz-index --rescan` or set SAPP_SFZ_RESCAN=1)");
+        instrumentChangedFlag_.store(true);
         return;
     }
     loadSfzInstrument(file);
@@ -164,12 +342,19 @@ void SappOrchestraProcessor::applyProgramSelect(int slot, int entryIndex)
         return;
     const auto& entry = sfzLibrary_[size_t(entryIndex)];
     const juce::File file(juce::String::fromUTF8(entry.path.c_str()));
-    if (file.getFullPathName() == slotPaths_[size_t(slot)])
-        return;
-    if (!file.existsAsFile()) {
+    {
         const juce::ScopedLock sl(loadLock_);
-        loadStatus_ = "Missing: " + file.getFullPathName();
-        if (onInstrumentChanged) onInstrumentChanged();
+        if (file.getFullPathName() == slotPaths_[size_t(slot)])
+            return;
+    }
+    if (!file.existsAsFile()) {
+        {
+            const juce::ScopedLock sl(loadLock_);
+            loadStatus_ = "Missing: " + file.getFullPathName();
+        }
+        logLine("SappOrchestra-instrument: MISSING program entry=" + juce::String(entryIndex)
+                + " path=\"" + file.getFullPathName() + "\"");
+        instrumentChangedFlag_.store(true);
         return;
     }
     loadSfzInstrumentIntoSlot(file, slot);
@@ -183,17 +368,64 @@ void SappOrchestraProcessor::syncInstrumentParameter(const juce::String& path)
     const auto pathStd = path.toStdString();
     for (size_t i = 0; i < sfzLibrary_.size(); ++i)
         if (sfzLibrary_[i].path == pathStd) { choice = int(i) + 1; break; }
-    applyingInstrumentChoice_ = true;
+    applyingInstrumentChoice_.store(true, std::memory_order_release);
     parameter->setValueNotifyingHost(
         parameter->convertTo0to1(float(choice)));
-    applyingInstrumentChoice_ = false;
+    applyingInstrumentChoice_.store(false, std::memory_order_release);
+}
+
+void SappOrchestraProcessor::publishReadiness()
+{
+    if (libraryReady_ == nullptr) return;
+    const bool ready = jobsOutstanding_.load() == 0
+                       && pendingInstrumentChoice_.load() < 0
+                       && pendingProgramSelect_.load() < 0
+                       && installCount_.load() > 0;
+    if (libraryReady_->get() != ready)
+        *libraryReady_ = ready;
+}
+
+void SappOrchestraProcessor::logInstalled(const juce::String& what, int slot, bool ok)
+{
+    logLine(juce::String("SappOrchestra-instrument: ") + (ok ? "loaded" : "FAILED")
+            + " slot=" + juce::String(slot)
+            + " source=\"" + what + "\" build=" SAPPORCH_VERSION);
+}
+
+void SappOrchestraProcessor::logAudioSourceIfNeeded()
+{
+    // Voices started from silence: name the instrument that produced them.
+    // This is the line that makes "the plugin is playing its default sound"
+    // visible in the wild instead of only audible (sappkeys #1 / sapptune #21).
+    if (!audioBatchStarted_.exchange(false)) return;
+    const double nowMs = juce::Time::getMillisecondCounterHiRes();
+    if (nowMs - lastAudioSourceLogMs_ < 3000.0) return;
+    lastAudioSourceLogMs_ = nowMs;
+
+    const int slot = selectedSlot_.load();
+    juce::String source, name;
+    {
+        const juce::ScopedLock sl(loadLock_);
+        source = slotPaths_[size_t(slot)];
+        name = slotNames_[size_t(slot)];
+    }
+    if (source.isEmpty())
+        // ASCII only: these lines end up in host logs with every encoding.
+        source = "DIAGNOSTIC(no SFZ loaded - the built-in default is sounding)";
+    logLine("SappOrchestra-audio-source: instrument=\"" + source
+            + "\" name=\"" + name + "\" slot=" + juce::String(slot)
+            + " build=" SAPPORCH_VERSION
+            + " ready=" + juce::String(libraryReady() ? 1 : 0));
+}
+
+bool SappOrchestraProcessor::libraryReady() const
+{
+    return libraryReady_ != nullptr && libraryReady_->get();
 }
 
 bool SappOrchestraProcessor::rescanSfzLibrary() const
 {
-    const auto root = sapp::sfzlib::resolveRoot(
-        settings::samplesRoot().getFullPathName().toStdString());
-    return sapp::sfzlib::writeIndex(root, sapp::sfzlib::scan(root));
+    return rebuildSfzIndex() >= 0;
 }
 
 void SappOrchestraProcessor::handleSappLinkCc(int ccNumber, int ccValue)
@@ -235,6 +467,12 @@ SappOrchestraProcessor::~SappOrchestraProcessor()
 {
     stopTimer();
     apvts_.removeParameterListener("instrument", this);
+    // Join the loader before anything it touches is destroyed. (The old
+    // MessageManager::callAsync design could not do this: closures capturing
+    // `this` outlived the instance and crashed when a later pump ran them.)
+    loaderStop_.store(true, std::memory_order_release);
+    queueCv_.notify_all();
+    if (loaderThread_.joinable()) loaderThread_.join();
 }
 
 void SappOrchestraProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -265,7 +503,7 @@ void SappOrchestraProcessor::pushParamsToEngine()
         lastStageX_ = p.stageX;
         lastStageDepth_ = p.stageDepth;
         lastWidth_ = p.width;
-        engine_.setSlotStage(selectedSlot_, p.stageX, p.stageDepth, p.width);
+        engine_.setSlotStage(selectedSlot_.load(), p.stageX, p.stageDepth, p.width);
     }
     p.earlyLevel = pEarly_->load();
     p.tailLevel = pTail_->load();
@@ -275,6 +513,8 @@ void SappOrchestraProcessor::pushParamsToEngine()
     p.legato = pLegato_->load();
     p.dnaMode = int(pDnaMode_->load());
     p.dnaAmount = pDnaAmount_->load();
+    // SappLink `clean` (CC 3): scales every modeled imperfection by (1-clean).
+    p.clean = pClean_ != nullptr ? pClean_->load() : 0.0f;
     p.masterGainDb = pMaster_->load();
     p.limiter = pLimiter_->load() > 0.5f;
     p.quality = int(pQuality_->load());
@@ -318,7 +558,7 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const int artParam = int(pArticulation_->load());
     if (artParam != lastArticulationParam_) {
         lastArticulationParam_ = artParam;
-        engine_.selectArticulation(artParam, selectedSlot_);
+        engine_.selectArticulation(artParam, selectedSlot_.load());
     }
 
     for (const auto metadata : midi) {
@@ -376,6 +616,15 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                         buffer.getWritePointer(0), buffer.getWritePointer(1),
                         buffer.getNumSamples());
     }
+
+    // Silence → voices: flag it so the loader thread names what just sounded.
+    int voices = 0;
+    for (int slot = 0; slot < sapp::orchestra::OrchestraEngine::kNumSlots; ++slot)
+        if (engine_.slotOccupied(slot)) voices += engine_.sampler(slot).activeVoiceCount();
+    if (voices > 0 && lastVoiceCount_ == 0)
+        audioBatchStarted_.store(true, std::memory_order_relaxed);
+    lastVoiceCount_ = voices;
+
     midi.clear();
 }
 
@@ -383,29 +632,28 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
 void SappOrchestraProcessor::loadDiagnosticInstrument()
 {
-    const uint64_t generation = ++loadGeneration_;
-    const int slot = selectedSlot_;
-    loading_ = true;
+    LoadJob job;
+    job.kind = LoadJob::Kind::Diagnostic;
+    job.slot = juce::jlimit(0, 15, selectedSlot_.load());
+    job.generation = ++loadGeneration_;
+    slotGeneration_[size_t(job.slot)].store(job.generation);
+    // The construction diagnostic must NOT write the `instrument` parameter:
+    // a host that has already selected an instrument would see its choice
+    // reset to "(keep current)" when this landed.
+    job.constructionDefault = installCount_.load() == 0;
+    job.syncParameter = !job.constructionDefault;
     {
         const juce::ScopedLock sl(loadLock_);
         loadStatus_ = "Generating diagnostic orchestra...";
     }
-    std::thread([this, generation, slot] {
-        auto inst = sapp::sounds::makeDiagnosticInstrument();
-        sapp::sounds::LoadResult result;
-        result.instrument = inst;
-        result.ok = true;
-        juce::MessageManager::callAsync([this, result = std::move(result), generation, slot]() mutable {
-            finishLoad(std::move(result), {}, generation, slot);
-        });
-    }).detach();
+    enqueueLoad(std::move(job));
 }
 
 void SappOrchestraProcessor::selectSlot(int slot)
 {
     slot = juce::jlimit(0, sapp::orchestra::OrchestraEngine::kNumSlots - 1, slot);
-    if (slot == selectedSlot_) return;
-    selectedSlot_ = slot;
+    if (slot == selectedSlot_.load()) return;
+    selectedSlot_.store(slot);
 
     // Reflect the slot's stage into the (selected-slot-scoped) APVTS params.
     float x = 0, depth = 0, width = 1;
@@ -422,7 +670,12 @@ void SappOrchestraProcessor::selectSlot(int slot)
     reflect("width", width);
     // The `instrument` parameter is selected-slot-scoped, like the stage
     // params: reflect this slot's loaded SFZ (guarded, no reload).
-    syncInstrumentParameter(slotPaths_[size_t(slot)]);
+    juce::String path;
+    {
+        const juce::ScopedLock sl(loadLock_);
+        path = slotPaths_[size_t(slot)];
+    }
+    syncInstrumentParameter(path);
     lastArticulationParam_ = -1;  // re-apply on next block
     if (onInstrumentChanged) onInstrumentChanged();
 }
@@ -575,11 +828,15 @@ juce::File SappOrchestraProcessor::findLibraryDir(const juce::String& dirName) c
 {
     if (dirName.isEmpty()) return {};
     // Cached: panel timers poll availability, and the recursive scan of a
-    // large samples tree is not free.
+    // large samples tree is not free. Read from the UI timer and the loader
+    // thread both, hence the mutex.
     const auto now = juce::Time::getMillisecondCounter();
-    auto it = libraryRootCache_.find(dirName);
-    if (it != libraryRootCache_.end() && now - it->second.second < 10000)
-        return it->second.first;
+    {
+        std::lock_guard<std::mutex> lock(libraryCacheMutex_);
+        auto it = libraryRootCache_.find(dirName);
+        if (it != libraryRootCache_.end() && now - it->second.second < 10000)
+            return it->second.first;
+    }
     const auto root = settings::samplesRoot();
     juce::File found;
     if (root.getChildFile(dirName).isDirectory())
@@ -587,7 +844,10 @@ juce::File SappOrchestraProcessor::findLibraryDir(const juce::String& dirName) c
     else
         for (const auto& dir : root.findChildFiles(juce::File::findDirectories, true))
             if (dir.getFileName() == dirName) { found = dir; break; }
-    libraryRootCache_[dirName] = {found, now};
+    {
+        std::lock_guard<std::mutex> lock(libraryCacheMutex_);
+        libraryRootCache_[dirName] = {found, now};
+    }
     return found;
 }
 
@@ -605,33 +865,39 @@ bool SappOrchestraProcessor::loadOrchestraPreset(int preset)
     if (!orchestraPresetAvailable(preset)) return false;
     activePreset_ = preset;
     const uint64_t generation = ++loadGeneration_;
-    loading_ = true;
+    presetGeneration_.store(generation);
     {
         const juce::ScopedLock sl(loadLock_);
         loadStatus_ = "Setting up the orchestra (1/16)...";
     }
-    // Seats + balance apply immediately; instruments stream in one by one.
+    // Seats + balance apply immediately; instruments stream in one by one on
+    // the loader thread (one queued PresetStep job chaining to the next).
     const auto& def = kOrchestraPresets[preset];
     for (int i = 0; i < 16; ++i) {
         engine_.setSlotStage(i, def.slots[i].x, def.slots[i].depth, 1.0f);
         engine_.setSlotMix(i, def.slots[i].gainDb, false, false);
     }
-    selectedSlot_ = -1;   // force the slot-0 reselect to reflect its new seat
+    selectedSlot_.store(-1);   // force the slot-0 reselect to reflect its seat
     selectSlot(0);
-    loadOrchestraPresetStep(0, generation);
+    LoadJob job;
+    job.kind = LoadJob::Kind::PresetStep;
+    job.generation = generation;
+    job.presetStep = 0;
+    enqueueLoad(std::move(job));
     return true;
 }
 
-void SappOrchestraProcessor::loadOrchestraPresetStep(size_t step, uint64_t generation)
+void SappOrchestraProcessor::performPresetStep(const LoadJob& job)
 {
-    if (generation != loadGeneration_.load()) return;  // superseded
+    if (job.generation != presetGeneration_.load())
+        return;  // a newer preset took over: abandon this chain
+    const size_t step = size_t(job.presetStep);
     if (step >= 16) {
-        loading_ = false;
         {
             const juce::ScopedLock sl(loadLock_);
             loadStatus_ = "Full orchestra ready - 16 channels";
         }
-        if (onInstrumentChanged) onInstrumentChanged();
+        instrumentChangedFlag_.store(true);
         return;
     }
     const auto& slotDef = kOrchestraPresets[activePreset_].slots[step];
@@ -646,40 +912,25 @@ void SappOrchestraProcessor::loadOrchestraPresetStep(size_t step, uint64_t gener
                 if (!p.contains("includes") && !p.contains("modules")) { file = candidate; break; }
             }
     }
-
     {
         const juce::ScopedLock sl(loadLock_);
         loadStatus_ = "Loading " + fileName.upToLastOccurrenceOf(".sfz", false, true) +
                       " (" + juce::String(int(step) + 1) + "/16)...";
     }
-    if (onInstrumentChanged) onInstrumentChanged();
+    instrumentChangedFlag_.store(true);
 
-    if (!file.existsAsFile()) {
-        loadOrchestraPresetStep(step + 1, generation);
-        return;
-    }
-    const juce::String path = file.getFullPathName();
-    const int slot = int(step);
-    std::thread([this, path, generation, slot, step] {
+    if (file.existsAsFile()) {
+        LoadJob slotJob = job;
+        slotJob.slot = int(step);
+        slotGeneration_[step].store(job.generation);
         sapp::sounds::InstrumentLoader loader;
-        auto result = loader.loadSfz(path.toStdString());
-        juce::MessageManager::callAsync(
-            [this, result = std::move(result), path, generation, slot, step]() mutable {
-                if (generation != loadGeneration_.load()) return;
-                if (result.ok && result.instrument != nullptr) {
-                    const juce::ScopedLock sl(loadLock_);
-                    engine_.setInstrument(result.instrument, slot);
-                    engine_.collectRetired();
-                    slotPaths_[size_t(slot)] = path;
-                    slotNames_[size_t(slot)] =
-                        juce::String(result.instrument->definition.name);
-                }
-                if (result.ok && slot == selectedSlot_)
-                    syncInstrumentParameter(slotPaths_[size_t(slot)]);
-                if (onInstrumentChanged) onInstrumentChanged();
-                loadOrchestraPresetStep(step + 1, generation);
-            });
-    }).detach();
+        auto result = loader.loadSfz(file.getFullPathName().toStdString());
+        finishLoad(std::move(result), file.getFullPathName(), slotJob);
+    }
+
+    LoadJob next = job;
+    next.presetStep = int(step) + 1;
+    enqueueLoad(std::move(next));
 }
 
 juce::String SappOrchestraProcessor::slotName(int slot) const
@@ -691,64 +942,86 @@ juce::String SappOrchestraProcessor::slotName(int slot) const
 
 void SappOrchestraProcessor::loadSfzInstrument(const juce::File& sfzFile)
 {
-    loadSfzInstrumentIntoSlot(sfzFile, selectedSlot_);
+    loadSfzInstrumentIntoSlot(sfzFile, selectedSlot_.load());
 }
 
 void SappOrchestraProcessor::loadSfzInstrumentIntoSlot(const juce::File& sfzFile, int slot)
 {
-    const uint64_t generation = ++loadGeneration_;
-    loading_ = true;
+    LoadJob job;
+    job.kind = LoadJob::Kind::Sfz;
+    job.path = sfzFile.getFullPathName();
+    job.slot = juce::jlimit(0, 15, slot);
+    job.generation = ++loadGeneration_;
+    slotGeneration_[size_t(job.slot)].store(job.generation);
     {
         const juce::ScopedLock sl(loadLock_);
         loadStatus_ = "Loading " + sfzFile.getFileName() + "...";
     }
-    const juce::String path = sfzFile.getFullPathName();
-    std::thread([this, path, generation, slot] {
-        sapp::sounds::InstrumentLoader loader;
-        auto result = loader.loadSfz(path.toStdString());
-        juce::MessageManager::callAsync([this, result = std::move(result), path, generation, slot]() mutable {
-            finishLoad(std::move(result), path, generation, slot);
-        });
-    }).detach();
+    enqueueLoad(std::move(job));
 }
 
+// Loader thread. Installs the instrument and publishes everything that
+// depends on it; the editor is notified later, from the timer.
 void SappOrchestraProcessor::finishLoad(sapp::sounds::LoadResult result,
-                                        const juce::String& path, uint64_t generation,
-                                        int slot)
+                                        const juce::String& path, const LoadJob& job)
 {
-    if (generation != loadGeneration_.load()) loading_ = false;  // superseded but note it
-    loading_ = false;
-
-    const juce::ScopedLock sl(loadLock_);
-    if (!result.ok || result.instrument == nullptr) {
-        loadStatus_ = "Load failed";
-        for (const auto& d : result.diagnostics)
-            if (d.severity == sapp::sounds::Severity::Error) {
-                loadStatus_ = "Load failed: " + juce::String(d.message);
-                break;
-            }
-    } else {
-        engine_.setInstrument(result.instrument, slot);
-        engine_.collectRetired();
-        slotPaths_[size_t(slot)] = path;
-        slotNames_[size_t(slot)] = juce::String(result.instrument->definition.name);
-        loadStatus_ = result.missingSamples.empty()
-                          ? "Ready"
-                          : juce::String(result.missingSamples.size()) + " samples missing";
-        lastArticulationParam_ = -1;  // re-apply articulation on next block
+    // Superseded loads must NOT install. (This guard existed but never
+    // returned, so the slow construction-time diagnostic could land after a
+    // real SFZ and overwrite it — half of issue #2.) Per slot, so a 16-slot
+    // state restore installs all sixteen.
+    const int slot = job.slot;
+    if (job.generation != slotGeneration_[size_t(slot)].load())
+        return;
+    bool ok = false;
+    {
+        const juce::ScopedLock sl(loadLock_);
+        if (!result.ok || result.instrument == nullptr) {
+            loadStatus_ = "Load failed";
+            for (const auto& d : result.diagnostics)
+                if (d.severity == sapp::sounds::Severity::Error) {
+                    loadStatus_ = "Load failed: " + juce::String(d.message);
+                    break;
+                }
+        } else {
+            ok = true;
+            engine_.setInstrument(result.instrument, slot);
+            engine_.collectRetired();
+            slotPaths_[size_t(slot)] = path;
+            slotNames_[size_t(slot)] = juce::String(result.instrument->definition.name);
+            loadStatus_ = result.missingSamples.empty()
+                              ? "Ready"
+                              : juce::String(result.missingSamples.size()) + " samples missing";
+            lastArticulationParam_ = -1;  // re-apply articulation on next block
+        }
     }
+    if (ok) installCount_.fetch_add(1);
+    logInstalled(path.isEmpty() ? juce::String("DIAGNOSTIC") : path, slot, ok);
+
     // Reflect the selected slot's instrument in the `instrument` parameter
-    // (guarded — this must not schedule another load).
-    if (slot == selectedSlot_)
-        syncInstrumentParameter(slotPaths_[size_t(slot)]);
-    if (onInstrumentChanged) onInstrumentChanged();
+    // (guarded — this must not schedule another load). Never for the
+    // construction diagnostic: it would wipe a selection the host already made.
+    if (job.syncParameter && slot == selectedSlot_.load()) {
+        juce::String current;
+        {
+            const juce::ScopedLock sl(loadLock_);
+            current = slotPaths_[size_t(slot)];
+        }
+        syncInstrumentParameter(current);
+    }
+    instrumentChangedFlag_.store(true);
 }
 
 juce::String SappOrchestraProcessor::currentInstrumentName() const
 {
     const juce::ScopedLock sl(loadLock_);
-    const auto name = slotNames_[size_t(selectedSlot_)];
+    const auto name = slotNames_[size_t(juce::jmax(0, selectedSlot_.load()))];
     return name.isEmpty() ? "(empty)" : name;
+}
+
+juce::String SappOrchestraProcessor::currentInstrumentPath() const
+{
+    const juce::ScopedLock sl(loadLock_);
+    return slotPaths_[size_t(juce::jmax(0, selectedSlot_.load()))];
 }
 
 juce::String SappOrchestraProcessor::loadStatus() const
@@ -760,7 +1033,7 @@ juce::String SappOrchestraProcessor::loadStatus() const
 juce::StringArray SappOrchestraProcessor::articulationNames() const
 {
     juce::StringArray names;
-    if (auto inst = engine_.currentInstrument(selectedSlot_))
+    if (auto inst = engine_.currentInstrument(selectedSlot_.load()))
         for (const auto& a : inst->definition.articulations)
             names.add(juce::String(a.name));
     return names;
@@ -788,7 +1061,7 @@ void SappOrchestraProcessor::getStateInformation(juce::MemoryBlock& destData)
     auto state = apvts_.copyState();
     state.setProperty("sfzPath", slotPaths_[0], nullptr);  // legacy readers
     state.setProperty("stateVersion", 2, nullptr);
-    state.setProperty("selectedSlot", selectedSlot_, nullptr);
+    state.setProperty("selectedSlot", selectedSlot_.load(), nullptr);
     juce::ValueTree slots("slots");
     for (int i = 0; i < 16; ++i) {
         float x = 0, depth = 0, width = 1;
@@ -821,9 +1094,9 @@ void SappOrchestraProcessor::setStateInformation(const void* data, int sizeInByt
         // changes): suppress the `instrument` choice value coming back with
         // the tree so it cannot race the path-based loads below. finishLoad
         // re-syncs the parameter once the real instrument is in.
-        applyingInstrumentChoice_ = true;
+        applyingInstrumentChoice_.store(true, std::memory_order_release);
         apvts_.replaceState(state);
-        applyingInstrumentChoice_ = false;
+        applyingInstrumentChoice_.store(false, std::memory_order_release);
         pendingInstrumentChoice_.store(-1);
         const auto slots = state.getChildWithName("slots");
         bool loadedAny = false;

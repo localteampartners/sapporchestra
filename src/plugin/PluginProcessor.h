@@ -5,9 +5,12 @@
 // sapporchestra_core / SappSounds.
 
 #include <array>
-#include <map>
 #include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <thread>
 
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -18,6 +21,35 @@
 #include "../core/SfzLibrary.h"
 
 namespace sapporch {
+
+// --- headless operation (sapporchestra #1 / #2) ----------------------------
+// Everything below works with no GUI, no user and no message loop.
+
+/// Set SAPP_SFZ_RESCAN=1 to force a full rescan of the samples root at plugin
+/// construction, rewriting <root>/.sapp-sfz-index.json before the `instrument`
+/// choice list is built. This is the unattended equivalent of the editor's
+/// rescan (issue #1) — a station box never opens the editor.
+inline constexpr const char* kRescanEnvVar = "SAPP_SFZ_RESCAN";
+
+/// Set SAPP_ORCHESTRA_LOG=<file> to append the plugin's diagnostic lines
+/// (SappOrchestra-build / -instrument / -audio-source) to a file. They always
+/// go to the host's JUCE logger as well.
+inline constexpr const char* kLogEnvVar = "SAPP_ORCHESTRA_LOG";
+
+/// The samples root the library is enumerated from (SAPP_SFZ_ROOT wins over
+/// the shared Sapp "samplesRoot" setting), and the index file inside it.
+juce::String samplesRootForLibrary();
+juce::String indexFilePath();
+
+/// Rescan the samples root and rewrite the index. Returns the entry count, or
+/// -1 if the index could not be written. Safe to call before any plugin
+/// instance exists — this is what the headless CLI entry points use.
+int rebuildSfzIndex();
+
+/// One diagnostic line: JUCE logger (Live's Log.txt et al), stderr on Windows
+/// (where the JUCE logger goes to OutputDebugString and nowhere greppable),
+/// and $SAPP_ORCHESTRA_LOG when set.
+void logLine(const juce::String& message);
 
 class SappOrchestraProcessor : public juce::AudioProcessor,
                                private juce::AudioProcessorValueTreeState::Listener,
@@ -69,9 +101,15 @@ public:
     const std::vector<sapp::sfzlib::Entry>& sfzLibrary() const { return sfzLibrary_; }
     bool rescanSfzLibrary() const;
     juce::String currentInstrumentName() const;
-    juce::String currentInstrumentPath() const { return slotPaths_[size_t(selectedSlot_)]; }
+    juce::String currentInstrumentPath() const;
     juce::String loadStatus() const;
     bool isLoading() const { return loading_.load(); }
+
+    /// Readiness signal (sapporchestra #2, mirrors sappkeys v0.8.0). True once
+    /// every pending instrument load has landed, so the selected slot holds
+    /// what it was told to hold. Mirrored into the `libraryReady` host
+    /// parameter so a headless host can POLL instead of guessing a settle.
+    bool libraryReady() const;
 
     // Multitimbral slots (message/UI thread).
     int selectedSlot() const { return selectedSlot_; }
@@ -103,15 +141,40 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout
         makeLayout(std::vector<sapp::sfzlib::Entry>& outLibrary);
     void pushParamsToEngine();
-    void finishLoad(sapp::sounds::LoadResult result, const juce::String& path,
-                    uint64_t generation, int slot);
-    void loadOrchestraPresetStep(size_t step, uint64_t generation);
     juce::File findLibraryDir(const juce::String& dirName) const;
+
+    // --- instrument loading (sapporchestra #2) ------------------------------
+    // EVERY instrument install happens on loaderThread_, never on the JUCE
+    // message thread. A VST3 plugin inside a non-JUCE headless host has a
+    // MessageManager that nobody pumps: juce::Timer callbacks and
+    // MessageManager::callAsync() never run there, so a load routed through
+    // them is accepted and then silently dropped — which is exactly how the
+    // `instrument` parameter came to be a no-op on the station box. The 30 Hz
+    // timer survives only as an EDITOR convenience and nothing depends on it.
+    struct LoadJob {
+        enum class Kind { Sfz, Diagnostic, PresetStep };
+        Kind kind = Kind::Sfz;
+        juce::String path;          // Sfz: the file to load
+        int slot = 0;
+        uint64_t generation = 0;
+        int presetStep = -1;        // PresetStep: which of the 16 slots
+        bool constructionDefault = false;  // the diagnostic the ctor installs
+        bool syncParameter = true;  // reflect the result into `instrument`
+    };
+    void loaderLoop();
+    void enqueueLoad(LoadJob job);
+    void performLoad(LoadJob job);
+    void performPresetStep(const LoadJob& job);
+    void finishLoad(sapp::sounds::LoadResult result, const juce::String& path,
+                    const LoadJob& job);
+    void publishReadiness();
+    void logInstalled(const juce::String& what, int slot, bool ok);
+    void logAudioSourceIfNeeded();
 
     // --- `instrument` choice parameter plumbing (sapptune issue #20) --------
     // parameterChanged may fire on the audio thread: it only stores an index;
-    // the 30 Hz timer applies it on the message thread (SFZ loads must never
-    // run on the audio thread).
+    // the loader thread picks it up (SFZ loads must never run on the audio
+    // thread, and must never depend on the host pumping a message loop).
     void parameterChanged(const juce::String& parameterId, float newValue) override;
     void timerCallback() override;
     void applyInstrumentChoice(int choiceIndex);
@@ -121,6 +184,7 @@ private:
     void syncInstrumentParameter(const juce::String& path);
 
     int activePreset_ = 0;
+    mutable std::mutex libraryCacheMutex_;
     mutable std::map<juce::String, std::pair<juce::File, juce::uint32>> libraryRootCache_;
 
     // Library snapshot behind the `instrument` choice list. Declared BEFORE
@@ -148,6 +212,13 @@ private:
     std::atomic<float>* pLimiter_ = nullptr;
     std::atomic<float>* pQuality_ = nullptr;
     std::atomic<float>* pArticulation_ = nullptr;
+    std::atomic<float>* pClean_ = nullptr;
+
+    // Readiness readout (sapporchestra #2). Deliberately OUTSIDE the APVTS:
+    // it is a status signal, not part of the sound, so copyState/replaceState
+    // must never save or restore it — a stale "ready" from a saved session
+    // would lie. Non-automatable, appended last so no index moves.
+    juce::AudioParameterBool* libraryReady_ = nullptr;
 
     // Knob→CC bridging: moving Dynamics/Expression injects the matching CC.
     float lastDynParam_ = -1.0f, lastExprParam_ = -1.0f;
@@ -162,7 +233,7 @@ private:
         float target = 0.0f, current = 0.0f;
         bool active = false;
     };
-    std::array<CcSlew, 11> ccSlews_;
+    std::array<CcSlew, 12> ccSlews_;
     void handleSappLinkCc(int ccNumber, int ccValue);
     void advanceCcSlews(int numSamples);
 
@@ -175,16 +246,40 @@ private:
     std::atomic<int> pendingProgramSelect_{-1};
     std::array<uint8_t, 16> bankMsb_{};   // CC0 per channel (audio thread only)
     std::array<uint8_t, 16> bankLsb_{};   // CC32 per channel (audio thread only)
-    bool applyingInstrumentChoice_ = false;  // message-thread reentry guard
+    std::atomic<bool> applyingInstrumentChoice_{false};  // reentry guard
 
-    int selectedSlot_ = 0;
+    std::atomic<int> selectedSlot_{0};
     std::array<juce::String, 16> slotPaths_;   // "" = empty / diagnostic
     std::array<juce::String, 16> slotNames_;
     float lastStageX_ = -99.0f, lastStageDepth_ = -99.0f, lastWidth_ = -99.0f;
     juce::String loadStatus_{"starting"};
     std::atomic<bool> loading_{false};
+    // loadGeneration_ hands out unique tickets; the guard that decides whether
+    // a finished load may still install is PER SLOT (a 16-slot state restore
+    // queues 16 loads, and a single global generation would let only the last
+    // one land). presetGeneration_ keeps a factory-preset chain alive until a
+    // newer preset supersedes it.
     std::atomic<uint64_t> loadGeneration_{0};
+    std::array<std::atomic<uint64_t>, 16> slotGeneration_{};
+    std::atomic<uint64_t> presetGeneration_{0};
     juce::CriticalSection loadLock_;
+
+    // Loader thread + its queue (see LoadJob above).
+    std::deque<LoadJob> loadQueue_;
+    std::mutex queueMutex_;
+    std::condition_variable queueCv_;
+    std::thread loaderThread_;
+    std::atomic<bool> loaderStop_{false};
+    std::atomic<int> jobsOutstanding_{0};
+    std::atomic<uint64_t> installCount_{0};
+    std::atomic<bool> instrumentChangedFlag_{false};  // editor hook, via timer
+
+    // SappOrchestra-audio-source: names WHAT sounded, so a wrong-instrument
+    // render is visible in a log instead of only by ear. The audio thread
+    // flags a voice batch that started from silence; the loader thread logs.
+    std::atomic<bool> audioBatchStarted_{false};
+    int lastVoiceCount_ = 0;                  // audio thread only
+    double lastAudioSourceLogMs_ = 0.0;       // loader thread only
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SappOrchestraProcessor)
 };

@@ -1,0 +1,2 @@
+// Fragment under includes/ — must never be enumerated as an instrument.
+<region> sample=../sine.wav key=60

@@ -53,11 +53,28 @@ struct OrchestraParams {
     // Analog DNA
     int dnaMode = 1;
     float dnaAmount = 0.18f;
+    // SappLink `clean` (CC 3, suite-wide convention — sapptune #30).
+    // 0 = every modeled imperfection as designed (the historical behavior);
+    // 1 = none. Scales the imperfection sources, never the musical signal.
+    float clean = 0.0f;
     // Output
     float masterGainDb = 0.0f;
     bool limiter = true;
     int quality = 1;
 };
+
+/// THE `clean` contract for this engine (sapptune #30). Analog DNA is the
+/// only modeled-imperfection source SappOrchestra has, and all three of its
+/// expressions — per-note random detune, slow gain drift, vintage hiss — are
+/// driven by `dnaAmount`, so scaling that one value scales all of them.
+/// Audited and deliberately NOT scaled: hall modulation (an FDN device that
+/// stops the tail ringing metallically — room design, not wear) and
+/// round-robin / velocity variation (which comes from the sample library).
+inline float effectiveDnaAmount(const OrchestraParams& p) noexcept
+{
+    const float clean = p.clean < 0.0f ? 0.0f : (p.clean > 1.0f ? 1.0f : p.clean);
+    return p.dnaAmount * (1.0f - clean);
+}
 
 class OrchestraEngine {
 public:

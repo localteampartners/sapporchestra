@@ -1,0 +1,3 @@
+// Headless-regression fixture: deliberately quieter AND an octave lower, so
+// "did the NAMED instrument sound?" is answerable from the audio alone.
+<region> sample=sine.wav lokey=0 hikey=127 pitch_keycenter=60 volume=-18 transpose=-12

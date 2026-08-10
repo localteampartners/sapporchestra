@@ -60,13 +60,40 @@ jobs:
           New-Item -ItemType Directory -Path $stage | Out-Null
           Copy-Item -Recurse "$art/VST3/SappOrchestra.vst3" "$stage/"
           Copy-Item "$art/Standalone/SappOrchestra.exe" "$stage/"
-          Copy-Item "build/Release/sapporchestra.exe" "$stage/" -ErrorAction SilentlyContinue
+          # The CLI and the headless harness are the UNATTENDED entry points
+          # (issue #1): a station box has no editor, so the only ways to build
+          # or refresh the SFZ index are one of these binaries or the
+          # SAPP_SFZ_RESCAN env var. Shipping them is not optional - the
+          # release fails if the build did not produce them.
+          $cli = Get-ChildItem -Path build -Recurse -Filter sapporchestra.exe |
+                 Select-Object -First 1
+          if (-not $cli) {
+            Write-Host "::error::sapporchestra.exe (agent CLI) was not built - the release would ship with no headless SFZ index tool"
+            exit 1
+          }
+          Copy-Item $cli.FullName "$stage/"
+          $headless = Get-ChildItem -Path build -Recurse -Filter sapporchestra-headless.exe |
+                      Select-Object -First 1
+          if (-not $headless) {
+            Write-Host "::error::sapporchestra-headless.exe was not built - the release would ship with no station harness"
+            exit 1
+          }
+          Copy-Item $headless.FullName "$stage/"
           Set-Content -Path "$stage/INSTALL.txt" -Value @(
-            'SappOrchestra — Windows x64',
+            'SappOrchestra - Windows x64',
             '',
             '1. Copy the SappOrchestra.vst3 folder to: C:\Program Files\Common Files\VST3\',
-            '2. SappOrchestra.exe is the standalone version — run it from anywhere.',
-            'Then rescan plugins in your DAW.'
+            '2. SappOrchestra.exe is the standalone version - run it from anywhere.',
+            'Then rescan plugins in your DAW.',
+            '',
+            'HEADLESS / STATION BOXES (no editor is ever opened):',
+            '  Rebuild the SFZ index after installing or adding libraries:',
+            '    sapporchestra-headless.exe index --rescan --root D:\Samples',
+            '  or set SAPP_SFZ_RESCAN=1 for one run of the host - the plugin then',
+            '  rebuilds the index itself at instantiation.',
+            '  Poll the read-only libraryReady parameter instead of guessing a',
+            '  settle time. The plugin logs SappOrchestra-audio-source lines',
+            '  naming whatever actually sounded (SAPP_ORCHESTRA_LOG=<file>).'
           )
           Compress-Archive -Path $stage -DestinationPath "$stage.zip"
       - name: Upload to release

@@ -32,6 +32,9 @@ pids/
 .vscode/
 *.swp
 
+# generated SFZ library index (written next to the samples / test fixtures)
+.sapp-sfz-index.json
+
 # local-only tooling state
 .claude/settings.local.json
 .sappcode/             # plugin scratch state (plan files, disabled list)

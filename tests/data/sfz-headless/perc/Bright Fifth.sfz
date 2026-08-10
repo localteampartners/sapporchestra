@@ -1,0 +1,2 @@
+// Headless-regression fixture: a third, distinct instrument.
+<region> sample=sine.wav lokey=0 hikey=127 pitch_keycenter=60 transpose=7

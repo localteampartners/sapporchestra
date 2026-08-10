@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(SappOrchestra VERSION 0.8.0 LANGUAGES C CXX)
+project(SappOrchestra VERSION 0.9.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -45,6 +45,9 @@ add_library(sapporchestra_core STATIC
 )
 target_include_directories(sapporchestra_core PUBLIC src)
 target_link_libraries(sapporchestra_core PUBLIC Sapp::Sounds)
+# One version string for every target (plugin, CLI, harnesses, tests): the
+# release guard reads project(... VERSION ...) above and nothing else.
+target_compile_definitions(sapporchestra_core PUBLIC SAPPORCH_VERSION="${PROJECT_VERSION}")
 sapporchestra_set_warnings(sapporchestra_core)
 
 # -------------------------------------------------------------------- cli ---
@@ -65,6 +68,7 @@ if(SAPPORCHESTRA_BUILD_TESTS)
   FetchContent_MakeAvailable(Catch2)
 
   add_executable(SappOrchestraTests
+    tests/unit/test_clean.cpp
     tests/unit/test_orchestra_engine.cpp
     tests/unit/test_room.cpp
     tests/unit/test_render.cpp
@@ -125,6 +129,36 @@ if(SAPPORCHESTRA_BUILD_PLUGIN)
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
   )
+
+  # ---------------------------------------------------- headless harness ---
+  # The station host: no editor, no dispatch loop. Cross-platform on purpose —
+  # sapporchestra #2 only reproduces where the JUCE message loop never runs,
+  # so this is the target that guards it (and CTest runs its selftest).
+  juce_add_console_app(SappOrchestraHeadless PRODUCT_NAME "sapporchestra-headless")
+  target_sources(SappOrchestraHeadless PRIVATE
+    tools/headless/main.cpp
+    src/plugin/PluginProcessor.cpp
+    src/plugin/PluginEditor.cpp
+    src/plugin/SoundsPanel.cpp
+  )
+  target_include_directories(SappOrchestraHeadless PRIVATE src/plugin)
+  target_link_libraries(SappOrchestraHeadless PRIVATE
+    sapporchestra_core
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+  )
+  target_compile_definitions(SappOrchestraHeadless PRIVATE
+    JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_MODAL_LOOPS_PERMITTED=1
+    SAPPORCH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+  set_target_properties(SappOrchestraHeadless PROPERTIES OUTPUT_NAME sapporchestra-headless)
+
+  if(SAPPORCHESTRA_BUILD_TESTS)
+    # The regression that guards issues #1 and #2. It runs the PLUGIN
+    # processor, so it only exists when the plugin target is built — which is
+    # the point (sappkeys #1: tests green, installed binary stale).
+    add_test(NAME headless COMMAND SappOrchestraHeadless selftest)
+  endif()
 
   if(APPLE)
     # Offscreen editor snapshot tool (UI verification without screen capture).

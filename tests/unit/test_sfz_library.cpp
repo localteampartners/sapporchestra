@@ -113,6 +113,55 @@ TEST_CASE("resolveRoot prefers the environment override", "[sfzlib]")
     REQUIRE(resolveRoot("/fallback") == "/fallback");
 }
 
+// sapporchestra #1: a station box never opens the editor, so the index has to
+// be buildable and refreshable with nobody there. These cover the rules the
+// station learned the hard way while indexing 2,760 .sfz files.
+
+TEST_CASE("the index is written UTF-8 with no BOM", "[sfzlib][headless]")
+{
+    // Set-Content -Encoding UTF8 on Windows PowerShell emits a BOM and every
+    // JSON.parse-based reader then rejects the file. The plugin's own writer
+    // must not.
+    const auto tmp = fs::temp_directory_path() / "sapporch-sfzlib-bom";
+    fs::remove_all(tmp);
+    fs::create_directories(tmp);
+    REQUIRE(writeIndex(tmp.string(), scan(kFixture)));
+    std::ifstream file(tmp / kIndexFileName, std::ios::binary);
+    char head[3] = {};
+    file.read(head, 3);
+    const bool hasBom = (head[0] == '\xef') && (head[1] == '\xbb') && (head[2] == '\xbf');
+    REQUIRE_FALSE(hasBom);
+    fs::remove_all(tmp);
+}
+
+TEST_CASE("a rescan picks up libraries added after the index was written",
+          "[sfzlib][headless]")
+{
+    // The staleness case from issue #1: the index is written once, 18 GB of
+    // libraries arrive later, and only a rescan may see them.
+    const auto tmp = fs::temp_directory_path() / "sapporch-sfzlib-stale";
+    fs::remove_all(tmp);
+    fs::copy(kFixture, tmp, fs::copy_options::recursive);
+
+    REQUIRE(loadOrScan(tmp.string()).size() == 3);
+
+    const auto added = tmp / "zzz-new-library";
+    fs::create_directories(added);
+    fs::copy_file(tmp / "sine.wav", added / "sine.wav");
+    std::ofstream(added / "Late Arrival.sfz")
+        << "<region> sample=sine.wav lokey=0 hikey=127 pitch_keycenter=60\n";
+
+    // The cached path deliberately does not notice...
+    REQUIRE(loadOrScan(tmp.string()).size() == 3);
+    // ...a rescan does, and rewrites the index so the next load sees it too.
+    const auto rescanned = scan(tmp.string());
+    REQUIRE(rescanned.size() == 4);
+    REQUIRE(writeIndex(tmp.string(), rescanned));
+    REQUIRE(loadOrScan(tmp.string()).size() == 4);
+
+    fs::remove_all(tmp);
+}
+
 TEST_CASE("loadOrScan caches: second call reads the index it wrote", "[sfzlib]")
 {
     // Copy the fixture so the cache write cannot pollute tests/data.
