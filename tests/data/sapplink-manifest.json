@@ -8,7 +8,6 @@
     "pitchBendRangeSemitones": 2
   },
   "parameters": [
-    { "id": "clean",       "label": "Clean",             "cc": 3,   "range": [0, 1],     "curve": "linear", "tags": ["clean", "imperfection"] },
     { "id": "masterGain",  "label": "Master",            "cc": 7,   "range": [-24, 12],  "curve": "linear", "tags": ["volume"] },
     { "id": "earlyLevel",  "label": "Early Reflections", "cc": 14,  "range": [0, 1],     "curve": "linear", "tags": ["space", "proximity"] },
     { "id": "hallDecay",   "label": "Hall Decay",        "cc": 15,  "range": [0.3, 12],  "curve": "log",    "tags": ["space", "tail"] },
@@ -16,10 +15,11 @@
     { "id": "stageDepth",  "label": "Stage Depth",       "cc": 17,  "range": [0, 1],     "curve": "linear", "tags": ["stage", "distance", "space"] },
     { "id": "width",       "label": "Width",             "cc": 18,  "range": [0, 2],     "curve": "linear", "tags": ["width", "space"] },
     { "id": "hallDamping", "label": "Hall Damping",      "cc": 19,  "range": [0, 1],     "curve": "linear", "tags": ["space", "tone"] },
-    { "id": "dnaAmount",   "label": "Analog DNA",        "cc": 26,  "range": [0, 1],     "curve": "linear", "tags": ["humanize", "waver", "vintage"] },
+    { "id": "dnaAmount",   "label": "Analog DNA",        "cc": 26,  "range": [0, 1],     "curve": "linear", "tags": ["humanize", "waver", "vintage", "imperfection"] },
     { "id": "legato",      "label": "Legato",            "cc": 68,  "range": [0, 1],     "curve": "linear", "tags": ["legato", "phrasing"] },
     { "id": "tailLevel",   "label": "Hall Level",        "cc": 91,  "range": [0, 1],     "curve": "linear", "tags": ["space", "reverb"] },
-    { "id": "hallSize",    "label": "Hall Size",         "cc": 92,  "range": [0.2, 1.5], "curve": "linear", "tags": ["space"] }
+    { "id": "hallSize",    "label": "Hall Size",         "cc": 92,  "range": [0.2, 1.5], "curve": "linear", "tags": ["space"] },
+    { "id": "clean",       "label": "Clean",             "cc": 3,   "range": [0, 1],     "curve": "linear", "tags": ["clean", "imperfection"] }
   ],
   "hostParameters": [
     {
@@ -29,14 +29,6 @@
       "automatable": true,
       "dynamicChoices": true,
       "note": "Host-automatable SFZ selection (issue #20). The choice list is machine-specific — [\"(keep current)\"] followed by every installed SFZ instrument — so the names are NOT listed here; the contract for mapping a name to a value is in instrumentSelect below."
-    },
-    {
-      "id": "libraryReady",
-      "label": "Library Ready",
-      "type": "bool",
-      "automatable": false,
-      "readOnly": true,
-      "note": "Readiness signal (sapporchestra #2, mirrors sappkeys v0.8.0). 1 = every pending instrument load has landed and the selected slot holds what it was told to hold; 0 = a load owns the window. A headless host polls this instead of guessing a settle time. Never saved or restored with host state."
     }
   ],
   "instrumentSelect": {
