@@ -249,6 +249,58 @@ int runSelftest(const juce::String& fixtureRoot)
     check(pumped.hash == selected.hash,
           "pumping the message loop changes nothing (same render)");
 
+    // ---- sappkeys #4: readiness must drop on a MID-SESSION swap -----------
+    // The sibling fault: a plugin that has already finished its first load
+    // keeps reporting THAT library's "ready" while the next one is starting.
+    // A station polling the flag stops waiting and renders into the load. The
+    // flag must go 0 synchronously, on the thread that asked, for every entry
+    // point that can begin a load — not only for the first one.
+    {
+        auto settle = [](sapporch::SappOrchestraProcessor& p) {
+            const auto deadline = juce::Time::getMillisecondCounter() + 8000u;
+            while (juce::Time::getMillisecondCounter() < deadline && !p.libraryReady())
+                juce::Thread::sleep(5);
+            return p.libraryReady();
+        };
+        const auto loudSfz =
+            root.getChildFile("loud").getChildFile("Loud Sine.sfz").getFullPathName();
+        const auto quietSfz =
+            root.getChildFile("quiet").getChildFile("Quiet Octave Down.sfz").getFullPathName();
+
+        auto processor = std::make_unique<sapporch::SappOrchestraProcessor>();
+        processor->prepareToPlay(48000.0, 512);
+        auto* parameter = processor->valueTree().getParameter("instrument");
+        auto select = [&](const juce::String& label) {
+            parameter->setValueNotifyingHost(
+                parameter->convertTo0to1(float(choiceForLabel(*processor, label))));
+        };
+
+        select(labelA);
+        check(settle(*processor) && processor->currentInstrumentPath() == loudSfz,
+              "mid-session: the first selection settled on its library");
+
+        // No sleep, no dispatch loop, nothing: read the flag straight back.
+        select(labelB);
+        check(!processor->libraryReady(),
+              "mid-session: libraryReady reads 0 the instant the `instrument` "
+              "parameter moves to another library");
+        check(settle(*processor) && processor->currentInstrumentPath() == quietSfz,
+              "mid-session: the flag returns only with the NEW library installed");
+
+        // A MIDI program change is the station's other selection path.
+        juce::AudioBuffer<float> buffer(2, 512);
+        juce::MidiBuffer midi;
+        midi.addEvent(juce::MidiMessage::programChange(1, 0), 0);   // entry 0 = Loud Sine
+        buffer.clear();
+        processor->processBlock(buffer, midi);
+        check(!processor->libraryReady(),
+              "mid-session: libraryReady reads 0 the instant a MIDI program change "
+              "lands in processBlock");
+        check(settle(*processor) && processor->currentInstrumentPath() == loudSfz,
+              "mid-session: the program change's library is in when the flag returns");
+        processor.reset();
+    }
+
     // ---- a multi-slot state restore must install EVERY slot ---------------
     // A 16-channel session queues sixteen loads at once. The supersede guard
     // is per SLOT for exactly this reason: one global generation would let

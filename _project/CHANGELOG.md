@@ -2,6 +2,30 @@
 
 <!-- UPDATE WHEN: a feature ships or a meaningful fix lands -->
 
+## 2026-08-11 — v0.10.0: a MIDI program change now drops `libraryReady` at once
+
+- Audit of sappkeys #4 ("`libraryReady` lies, so a host that trusts it renders
+  silence") against this repo. The `instrument` parameter path was already
+  correct — `parameterChanged()` clears the flag synchronously and
+  `publishReadiness()` counts the queued select — but **the MIDI
+  program-change branch of `processBlock()` was not**. The audio thread stored
+  `pendingProgramSelect_` and returned; readiness was only recomputed on the
+  loader thread's next pass (~5 ms), so a host that sent the program change
+  and polled in the same breath read the OUTGOING library's "ready" and could
+  render into the load that followed.
+- Measured, `sapporchestra-headless selftest`, with a settled instance
+  switched by program change: before — `libraryReady` still 1 the instant
+  `processBlock()` returned, and the settle loop exited immediately on the
+  PREVIOUS library ("Quiet Octave Down" where the host asked for "Loud Sine");
+  after — 0 immediately, and the flag returns only with `Loud Sine.sfz`
+  installed.
+- Fix: clear the flag on the calling thread, in the program-change branch,
+  right where the select is stored. Writing a parameter from `processBlock()`
+  is this processor's normal path already (`advanceCcSlews()` does it every
+  block).
+- 5 new headless checks (mid-session swap through the `instrument` parameter
+  and through MIDI program change). `./verify.sh` green.
+
 ## 2026-08-09 — v0.9.0: the `instrument` parameter actually loads (#2), headless index (#1), `clean`
 
 **Fixed (#2) — the `instrument` parameter was accepted and then did nothing

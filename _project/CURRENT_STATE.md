@@ -2,7 +2,20 @@
 
 <!-- UPDATE WHEN: a feature ships, something breaks, or a known issue is found/fixed -->
 
-**As of 2026-08-09 — v0.9.0: headless selection actually loads (#2), headless SFZ index (#1), suite-wide `clean`.**
+**As of 2026-08-11 — v0.10.0: a MIDI program change drops `libraryReady`
+synchronously (audit of sappkeys #4).**
+
+The `instrument` parameter path was already honest; the MIDI program-change
+branch of `processBlock()` was not — it queued the select on the audio thread
+and left readiness to the loader thread's next pass (~5 ms), so a host that
+sent the program change and polled immediately read the previous library's
+"ready" and could render into the load. Now cleared on the calling thread,
+right where the select is stored. Proven by 5 new headless checks
+(`sapporchestra-headless selftest`), which fail on the previous build.
+Not tagged — the release is driven separately.
+
+Previously — **2026-08-09, v0.9.0: headless selection actually loads (#2),
+headless SFZ index (#1), suite-wide `clean`.**
 
 ## Working
 

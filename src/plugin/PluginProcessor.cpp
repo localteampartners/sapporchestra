@@ -592,8 +592,19 @@ void SappOrchestraProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             // slot; the load itself happens on the message thread (timer).
             const int bank = (int(bankMsb_[e.channel]) << 7) | int(bankLsb_[e.channel]);
             const int entry = bank * 128 + msg.getProgramChangeNumber();
-            if (entry < int(sfzLibrary_.size()))
+            if (entry < int(sfzLibrary_.size())) {
                 pendingProgramSelect_.store((int(e.channel) << 16) | entry);
+                // Not ready from the instant the host asks (sappkeys #4).
+                // publishReadiness() already accounts for the queued select,
+                // but it only runs on the loader thread — a host that sends
+                // the program change and polls in the same breath would read
+                // the OUTGOING library's "ready" in the gap. Clearing here,
+                // on the calling thread, closes it. Writing a parameter from
+                // processBlock is this processor's normal path already
+                // (advanceCcSlews does it every block).
+                if (libraryReady_ != nullptr && libraryReady_->get())
+                    *libraryReady_ = false;
+            }
             continue;  // consumed; the engine has no program-change concept
         } else if (msg.isPitchWheel()) {
             e.type = MidiEvent::Type::PitchBend;
