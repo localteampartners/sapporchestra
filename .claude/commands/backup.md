@@ -2,13 +2,27 @@
 description: Verify this project's backups using the playbooks in _backup/. No CLI, no daemon — Claude reads the playbooks and runs the checks.
 ---
 
-This command drives the verification playbooks in [`_backup/`](../_backup/).
-There is no `sappbackup` binary — the playbooks are prose, you read them
-and follow the steps.
+This command drives the verification playbooks in [`_backup/`](../_backup/) —
+prose you read and follow, not a script.
 
-If the project does not have a `_backup/` folder, this plugin isn't
-installed. Tell the user to enable the sappbackup plugin (`--with-backup`
-or `plugins.sappbackup.enabled: true` in their spec) and stop.
+**There IS a `sappbackup` CLI** (`~/tools/sappbackup`, on PATH). It does the
+*doing*: builds artifacts, pushes them to Backblaze B2 and the NAS, and
+`sappbackup drill` restore-verifies them. The playbooks here do the *judging*:
+is coverage complete, is anything unverified. Use both — `sappbackup status`
+and `sappbackup drill --project <id>` are the fastest evidence for several
+playbook steps, and far better than asking the user to confirm from memory.
+
+**If this project is a website** (anything under `~/web/`), read
+`~/tools/sappbackup/_project/SITES.md` FIRST. It is the authoritative coverage
+matrix and it will tell you, per site, whether the database is actually backed
+up — which is the thing most likely to be missing and the thing a repo-level
+check cannot see. A site's git repo is not the site.
+
+If the project has no `_backup/` folder, the playbooks were never scaffolded.
+That does **not** mean the project is unbacked — check `sappbackup status` and
+the project's `.sappbackup.yml` before telling the user anything. Several live
+client sites are fully backed up with no `_backup/` folder at all. Offer to
+enable the plugin (`--with-backup`), but report the real coverage either way.
 
 ## Subcommands
 
